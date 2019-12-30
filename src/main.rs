@@ -511,9 +511,9 @@ fn test_parsing() {
             )),
         ),
         (
-            r#"SELECT(
+            r#"SELECT[DISTINCT](
                 
-                ITEMS[distinct](foo, bar, baz * 3), /* I like yaks */
+                ITEMS(foo, bar, baz * 3), /* I like yaks */
                 FROM(cats, dogs), //# End of line comment
                 GROUP_BY(),
                 HAVING(),

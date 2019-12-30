@@ -1,0 +1,218 @@
+= Formulas
+
+Spreadsheets are defined by data and formulas.
+
+Formulas expression the relationship between
+data in various different cells.
+
+The Excel formulas evolved from 1-2-3 which
+evolved from VisiCalc. All of this is to say spreadsheet
+formulas ceased evolution at a time when programs
+had line numbers and `GOTO`.
+
+== Projections
+
+The key driver for evolving formulas is _Projections_.
+
+The Mesa X approach to spreadsheets is a series
+of chained source entities and destination worksheets. The
+relationship between the source and the destination.
+
+Source entities can be databases, other worksheets, or
+any other data source that can produce rows/columns of 
+data.
+
+Projections can be bidirectional (changes in a
+destination worksheet are pushed back to the source),
+unidirectional (the cells in the destination worksheet
+that are projected to/derived from are read-only),
+or partially directional (cells that derive from the
+source using a formula that's isomorphic can be changed).
+
+Projections are a generalization of pivot tables.
+
+== Formulas all the way down
+
+One of the amazing and super powerful things about
+relational databases is they are tables all the way
+down. There are tables in an RDBMS that describe
+the other tables in the system.
+
+RDBMSs have a lot of staying power. Even with the
+introduction of "`NoSQL`", RDBMSs continued to hang on,
+and even evolve. There's nothing better for storage and
+querying data than an RDBMS... and SQL works
+so well that it's become the thing layered on top
+of big data and a whole bunch of other data-oriented
+systems.
+
+Why? Because SQL is a reasonably good syntax for describing
+set manipulation.
+
+Thinking about how to evolve spreadsheets and, specifically
+how to approach writing formulas that can (1) express
+set manipulations like SQL; and (2) are maintainable/readable,
+we need some enhancements to formula syntax.
+
+== Formula Syntax Enhancements
+
+I've built a formula parser that extends formulas in
+reasonable directions that should not surprise existing
+spreadsheet users.
+
+=== Multi-line
+
+Formulas should be multi-line. They are complex expressions
+and may need to be written on multiple lines to be maintainable.
+
+Thus:
+
+```
+=IF(A1 > B2 && B3 > G6 || SUM(QQ99:ZZ107) + SUM(EE7:UU:9) > AVE(D4:D9), AVE(Q2:Q9) + SUM(QQ99:ZZ107) + SUM(EE7:UU:9), A1 + B2 + B3 + G6 + SUM(W4:W9))
+```
+
+Can become:
+
+```
+=IF(A1 > B2 && 
+    B3 > G6 || 
+    SUM(QQ99:ZZ107) + SUM(EE7:UU:9) > 
+      AVE(D4:D9), 
+      
+    AVE(Q2:Q9) + SUM(QQ99:ZZ107) + SUM(EE7:UU:9),
+    
+    A1 + B2 + B3 + G6 + SUM(W4:W9))
+```
+
+It's looking better.
+
+=== Comments
+
+For something complex line a multi-line formula,
+it's helpful to have comments inline... not as an
+adjunct to the cell the formula is in.
+
+I'm looking at adding C-style block comments and
+single line comments.
+
+```
+=IF(A1 > B2 && B3 > G6 //# The north sales are great than west
+    || 
+    /* or rounding errors are greater than average change */
+    SUM(QQ99:ZZ107) + SUM(EE7:UU:9) > AVE(D4:D9), 
+      
+    //# Then average change given plus rounding errors
+    AVE(Q2:Q9) + SUM(QQ99:ZZ107) + SUM(EE7:UU:9),
+    
+    //# something else we care about
+    A1 + B2 + B3 + G6 + SUM(W4:W9))
+```
+
+The parts of the formula can be explained.
+
+=== Assignments/Don't Repeat Yourself
+
+Complex formulas often have repeated sets of stuff.
+Being able to assign parts of a formula to an identifier
+will help reduce duplication:
+
+```
+=
+let rounding_errors = SUM(QQ99:ZZ107) + SUM(EE7:UU:9); 
+IF(A1 > B2 && B3 > G6 //# The north sales are great than west
+    || 
+    /* or rounding errors are greater than average change */
+    rounding_errors > AVE(D4:D9), 
+      
+    //# Then average change given plus rounding errors
+    AVE(Q2:Q9) + rounding_errors,
+    
+    //# something else we care about
+    A1 + B2 + B3 + G6 + SUM(W4:W9))
+```
+
+Assignments are not the usual eager evaluation,
+but some combination of lazy evaluation and syntactic
+substitution.
+
+=== Function Decorators
+
+There exist functions, e.g. `AVE()` (average) that have
+overloaded meanings. Is the average mean, mode, or median?
+
+Decorators allow for the communication of semantic information
+to the function in a way that is understandable to the
+user.
+
+```
+=
+let rounding_errors = SUM(QQ99:ZZ107) + SUM(EE7:UU:9); 
+IF(A1 > B2 && B3 > G6 //# The north sales are great than west
+    || 
+    /* or rounding errors are greater than average change */
+    rounding_errors > AVE[MEAN](D4:D9), 
+      
+    //# Then average change given plus rounding errors
+    AVE[MEDIAN](Q2:Q9) + rounding_errors,
+    
+    //# something else we care about
+    A1 + B2 + B3 + G6 + SUM(W4:W9))
+```
+
+I'm not sure the semantics of decorators yet. On one hand,
+having fixed identifiers that are effectively strings looks
+nice, but there could be a reason to dynamically set the decorators
+based on data external to the formula (e.g., change `MEAN` to `MEDIAN`
+to show the difference.)
+
+For now, decorators are enclosed in square braces and are
+zero or more expressions.
+
+=== Function-specific sub-functions
+
+Looking at replicating the functionality of SQL `SELECT`
+in a formula, it would be useful to call out 
+sub-parts of the select function:
+
+```
+SELECT[ DISTINCT ](
+    ITEMS(foo, bar, baz * 3), /* I like yaks */
+    FROM(cats, dogs), //# End of line comment
+    GROUP_BY(),
+    HAVING(),
+    order_BY()
+)
+```
+ 
+The same could be used with `IF()` and to create
+a `MATCH()` function.
+
+```
+IF(A1 > B1, THEN(B1 * 44),
+   ELSE_IF(C1 > D1, THEN(D1)),
+   ELSE_IF(Q2 > Z5, THEN(Q2)),
+   ELSE(55)
+   )
+```
+
+The `MATCH()` example:
+
+```
+MATCH(
+    Q1,
+    CASE("Hello", 55),
+    CASE(x, GUARD(LEN(x) < 3), 17),
+    DEFAULT(42)
+)
+
+```
+
+== Conclusion
+
+THe above enhancements to spreadsheet syntax are
+reasonable evolutions to the existing formula
+syntax. They should be understandable to an
+Excel user, and, yet, they provide the power
+to write much more powerful and maintainable
+formulas as well as allowing for the introduction
+of things like `SELECT()` to allow for Projections.
