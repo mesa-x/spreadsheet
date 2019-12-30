@@ -1,0 +1,21 @@
+= Mesa X
+
+Mesa X is a project by https://github.com/dpp[dpp]
+to see if we can think about spreadsheets differently.
+
+dpp wrote a bit about other ways to think
+about https://blog.goodstuff.im/spreadsheet_thinking_2019[spreadsheets].
+
+This project is exploratory... it's dpp's exploration
+of different spreadsheet approaches... and an exploration
+of coding in https://rust-lang.org[Rust].
+
+For design thinking, etc. please check out the
+`/info` directory or the upcoming
+https://mesa-x.org[blog].
+
+The project is licensed under an Apache 2.0 license. If
+there are cool things to be done with spreadsheets, let's
+make them universally available.
+
+Pull requests welcome.
