@@ -11,8 +11,10 @@ use combine::{
 
 fn precedence(opr: &str) -> i32 {
     match opr {
-        "+" | "-" => 1,
-        "*" | "/" => 2,
+        "+" | "-" => 100,
+        "*" | "/" => 200,
+        "==" | ">" => 20,
+        "&&" => 10,
         _ => 0,
     }
 }
@@ -83,12 +85,22 @@ parser! {
 }
 
 parser! {
+    fn parser_raw_opr[I]()(I) -> String
+    where [ I: Stream<Item = char>, ]
+    {
+        (string("&&").
+        or(string("=="))).map(|s| s.to_string())
+        .or(char('+').or(char('-')).or(char('*')).
+         or(char('>')).
+        or(char('/')).or(char('^')).or(char('&')).map(|c: char| c.to_string()))
+    }
+}
+
+parser! {
     fn parser_opr[I]()(I) -> String
     where [ I: Stream<Item = char>, ]
     {
-        between(optional(parser_whitespaces()), optional(parser_whitespaces()), char('+').
-        or(char('-')).or(char('*')).
-        or(char('/')).or(char('^')).or(char('&'))).map(|c: char| c.to_string())
+        between(optional(parser_whitespaces()), optional(parser_whitespaces()), parser_raw_opr())
     }
 }
 
@@ -198,11 +210,27 @@ parser! {
 }
 
 parser! {
+   fn parser_dotted_identifier[I]()(I) -> Vec<String>
+    where [ I: Stream<Item = char>, ]
+    {
+        (parser_identifier(), many1((parser_whitespaces(), char('.'),  parser_identifier(), parser_whitespaces()))).
+        map(|(id, more): (String, Vec<((), char, String, ())>)| {
+            let mut ret = Vec::new();
+            ret.push(id);
+            for x in &more {
+                ret.push(x.2.clone())
+            }
+            ret
+        })
+    }
+}
+
+parser! {
    fn parser_identifier[I]()(I) -> String
     where [ I: Stream<Item = char>, ]
     {
-       (parser_whitespaces(), letter(), many(alpha_num().or(char('_'))))
-       .map(|(_, c, st): ((), char, String)| (c.to_string() + &st).to_uppercase())
+       (parser_whitespaces(), letter(), many(alpha_num().or(char('_'))), parser_whitespaces())
+       .map(|(_, c, st, _): ((), char, String, ())| (c.to_string() + &st).to_uppercase())
     }
 }
 
@@ -247,6 +275,7 @@ pub enum Expression {
     Int(i128),
     Float(f64),
     Str(String),
+    DottedIdentifier(Vec<String>),
     Identifier(String),
     Paren(Box<Expression>),
     Address(Address),
@@ -268,6 +297,7 @@ where
         attempt(parser_let()),
         attempt(parser_opr_exp()),
         attempt(parser_paren()),
+        attempt(parser_dotted_identifier().map(Expression::DottedIdentifier)),
         attempt(parser_function()),
         attempt(parser_range().map(|r| Expression::Range(r))),
         attempt(parser_address().map(|a| Expression::Address(a))),
@@ -288,6 +318,7 @@ where
     choice((
         attempt(parser_let()),
         attempt(parser_paren()),
+        attempt(parser_dotted_identifier().map(Expression::DottedIdentifier)),
         attempt(parser_function()),
         attempt(parser_range().map(|r| Expression::Range(r))),
         attempt(parser_address().map(|a| Expression::Address(a))),
@@ -594,6 +625,51 @@ fn test_parsing() {
                     ),
                 ],
             )),
+        ),
+        (
+            r#"foo.bar.bar"#,
+            Ok(Expression::DottedIdentifier(vec![
+                "FOO".to_string(),
+                "BAR".to_string(),
+                "BAR".to_string(),
+            ])),
+        ),
+        (
+            r#"55 + foo.bar "#,
+            Ok(Expression::Infix(
+                "+".to_string(),
+                Box::from(Expression::Int(55)),
+                Box::from(Expression::DottedIdentifier(vec![
+                    "FOO".to_string(),
+                    "BAR".to_string(),
+                ])),
+            )),
+        ),
+        (
+            r#"false && true "#, // && cat.food == "Woof"
+            Ok(Expression::Infix(
+                "&&".to_string(),
+                Box::from(Expression::Identifier("FALSE".to_string())),
+                Box::from(Expression::Identifier("TRUE".to_string())),
+            )),
+        ),
+        (
+            r#"foo.bar.baz > 55 && cat.food == "hello" "#, // && cat.food == "Woof"
+            Ok(Expression::Infix(
+                "&&".to_string(),
+                Box::from(Expression::Infix(
+                    ">".to_string(),
+                    Box::from(Expression::DottedIdentifier(vec![
+                        "FOO".to_string(),
+                        "BAR".to_string(),
+                        "BAZ".to_string(),
+                    ])),
+                    Box::from(Expression::Int(55)))),
+                Box::from(
+                Expression::Infix("==".to_string(),
+                Box::from(Expression:: DottedIdentifier(vec!["CAT".to_string(), "FOOD".to_string()])),
+                Box::from(Expression:: Str("hello".to_string())))))),
+            
         ),
         (r#"$5221343%%%"#, Err(44)),
     ];
