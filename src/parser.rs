@@ -15,6 +15,7 @@ use nom::{
 
 use crate::util::*;
 
+
 fn precedence(opr: &str) -> i32 {
     match opr {
         "+" | "-" => 100,
@@ -392,17 +393,18 @@ fn parser_identifier(input: &str) -> IResult<&str, Expression> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::parser_util::{ex_id};
     #[test]
     fn test_parser_identifier() {
         assert_eq!(
             parser_identifier("x"),
-            Ok(("", Expression::Identifier("X".to_string()))),
+            Ok(("", ex_id("x"))),
             "single letter variable"
         );
+
         assert_eq!(
             parser_identifier("  frog32xx "),
-            Ok(("", Expression::Identifier("FROG32XX".to_string())))
+            Ok(("", ex_id("FROG32XX")))
         );
 
         assert_eq!(
@@ -412,7 +414,7 @@ mod tests {
         
         $$$"
             ),
-            Ok(("$$$", Expression::Identifier("FROG32XX".to_string())))
+            Ok(("$$$", ex_id("FROG32XX")))
         );
     }
 }
@@ -487,21 +489,18 @@ fn expr(input: &str) -> IResult<&str, Expression> {
     ))(input)
 }
 
-pub fn ei(s: &str) -> Expression {
-    Expression::Identifier(s.to_string())
-}
 
-pub fn tvs(input: Vec<&str>) -> Vec<String> {
-    input.iter().map(|s| s.to_string().to_uppercase()).collect()
-}
 
-pub fn edi(vs: Vec<&str>) -> Expression {
-    Expression::DottedIdentifier(tvs(vs))
-}
+// pub fn tvs(input: Vec<&str>) -> Vec<String> {
+//     input.iter().map(|s| s.to_string().to_uppercase()).collect()
+// }
+
 
 #[test]
 fn test_expr() {
-    assert_eq!(expr(" foo /* cat */ "), Ok(("", ei("FOO"))));
+    use crate::parser_util::{ex_dot, ex_fun, ex_id};
+
+    assert_eq!(expr(" foo /* cat */ "), Ok(("", ex_id("FOO"))));
 
     assert_eq!(
         expr(
@@ -514,13 +513,11 @@ fn test_expr() {
         ),
         Ok((
             "",
-            Expression::Function(
-                "CAT".to_string(),
-                vec![],
+            ex_fun("cat", vec![],
                 vec![
-                    ei("DOG"),
-                    edi(vec!["moose", "cat"]),
-                    edi(vec!["rat", "s", "s"])
+                    ex_id("DOG"),
+                    ex_dot(vec!["moose", "cat"]),
+                    ex_dot(vec!["rat", "s", "s"])
                 ]
             )
         ))

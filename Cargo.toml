@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 # combine = "4.0.1"
 nom = "5.1.1"
+im = { version = "14.3.0", features = ["proptest", "serde"] }
