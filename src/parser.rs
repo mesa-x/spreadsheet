@@ -1,4 +1,3 @@
-
 use nom::{
     branch::alt,
     bytes::complete::{is_a, is_not, tag, take, take_till},
@@ -13,6 +12,8 @@ use nom::{
     IResult,
     InputTakeAtPosition,
 };
+
+use crate::util::*;
 
 fn precedence(opr: &str) -> i32 {
     match opr {
@@ -55,23 +56,7 @@ pub enum Expression {
     Let(String, Box<Expression>, Box<Expression>),
 }
 
-/// Join a `Vec` of `String` into a `String`
-fn vec_string_to_string(v: &Vec<String>) -> String {
-    let r2 = v.iter().fold(String::from(""), |mut sum, the_str| {
-        sum.push_str(the_str);
-        sum
-    });
-    r2
-}
 
-/// Join a `Vec` of `&str` into a `String`
-fn vec_str_to_string(v: &Vec<&str>) -> String {
-    let r2 = v.iter().fold(String::from(""), |mut sum, the_str| {
-        sum.push_str(the_str);
-        sum
-    });
-    r2
-}
 
 /// return a function that matches a tag, but returns an `IResult<&str, String>`
 fn str_tag(to_match: &str) -> impl Fn(&str) -> IResult<&str, String> {
@@ -378,7 +363,7 @@ fn concat_str(x: &str, y: &str) -> String {
     ret
 }
 
-pub fn alphanumeric_or_underscore0<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
+ fn alphanumeric_or_underscore0<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
 where
     T: InputTakeAtPosition,
     <T as InputTakeAtPosition>::Item: AsChar + Clone,
@@ -477,8 +462,8 @@ fn expr_mini(input: &str) -> IResult<&str, Expression> {
         &parser_paren,
         &parser_dotted_identifier,
         &parser_function,
-        &parser_range,
         &parser_address,
+        &parser_range,
         &parser_identifier,
         &parser_string,
         &parser_float,
@@ -494,8 +479,8 @@ fn expr(input: &str) -> IResult<&str, Expression> {
         &parser_dotted_identifier,
         &parser_function,
         &parser_range,
-        &parser_address,
         &parser_identifier,
+        &parser_address,
         &parser_string,
         &parser_float,
         &parser_int,
