@@ -21,11 +21,3 @@ pub fn vec_string_to_string(v: &Vec<String>) -> String {
     r2
 }
 
-/// Join a `Vec` of `&str` into a `String`
-pub fn vec_str_to_string(v: &Vec<&str>) -> String {
-    let r2 = v.iter().fold(String::from(""), |mut sum, the_str| {
-        sum.push_str(the_str);
-        sum
-    });
-    r2
-}

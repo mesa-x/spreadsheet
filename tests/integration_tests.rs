@@ -4,16 +4,16 @@ use mesax::parser_util::*;
 #[test]
 fn test_parsing() {
     let test_exprs: Vec<(&str, Result<Expression, i32>)> = vec![
-        (r#"147"#, Ok(Expression::Int(147))),
-        (r#"=  147"#, Ok(Expression::Int(147))),
+        (r#"147"#, Ok(ex_i(147))),
+        (r#"=  147"#, Ok(ex_i(147))),
         (r#""Hello World""#, Ok(ex_str("Hello World"))),
-        (r#"147 /* comment */"#, Ok(Expression::Int(147))),
+        (r#"147 /* comment */"#, Ok(ex_i(147))),
         (
             r#"147 //# comment 
              "#,
-            Ok(Expression::Int(147)),
+            Ok(ex_i(147)),
         ),
-        (r#"147 //# comment   "#, Ok(Expression::Int(147))),
+        (r#"147 //# comment   "#, Ok(ex_i(147))),
         (r#""Hello World""#, Ok(ex_str("Hello World"))),
         (r#"true"#, Ok(ex_id("TRUE"))),
         (
@@ -21,7 +21,7 @@ fn test_parsing() {
             Ok(ex_fun(
                 "IF",
                 vec![],
-                vec![Expression::Int(32), ex_str("yes"), ex_str("no")],
+                vec![ex_i(32), ex_str("yes"), ex_str("no")],
             )),
         ),
         (
@@ -41,32 +41,31 @@ fn test_parsing() {
             )),
         ),
         (r#"  "Hello World""#, Ok(ex_str("Hello World"))),
-        (r#"-32"#, Ok(Expression::Int(-32))),
-        (r#"+32"#, Ok(Expression::Int(32))),
-        (r#"32.99"#, Ok(Expression::Float(32.99))),
-        (r#"-32.822"#, Ok(Expression::Float(-32.822))),
+        (r#"-32"#, Ok(ex_i(-32))),
+        (r#"+32"#, Ok(ex_i(32))),
+        (r#"32.99"#, Ok(ex_f(32.99))),
+        (r#"-32.822"#, Ok(ex_f(-32.822))),
         (r#"A1"#, Ok(ex_id("a1"))),
         (r#"$A3"#, Ok(ex_adr("$A3"))),
         (r#"$A3:b77"#, Ok(ex_rng("$a3", "b77"))),
         (
             r#"$ABE3328282"#,
-            Ok(Expression::Address(Address {
-                addr: String::from("$ABE3328282"),
-            })),
+            Ok(ex_adr("$ABE3328282"),
+            ),
         ),
         (
             r#"SuM(a1:$B7)"#,
             Ok(ex_fun("sum", vec![], vec![ex_rng("a1", "$b7")])),
         ),
         (r#"(a1:$B7)"#, Ok(ex_paren(ex_rng("a1", "$B7")))),
-        (r#"( 44 )"#, Ok(ex_paren(Expression::Int(44)))),
-        (r#"( -73.4)"#, Ok(ex_paren(Expression::Float(-73.4)))),
+        (r#"( 44 )"#, Ok(ex_paren(ex_i(44)))),
+        (r#"( -73.4)"#, Ok(ex_paren(ex_f(-73.4)))),
         (
             r#"(sum(2,3,4))"#,
             Ok(ex_paren(ex_fun(
                 "sum",
                 vec![],
-                vec![Expression::Int(2), Expression::Int(3), Expression::Int(4)],
+                vec![ex_i(2), ex_i(3), ex_i(4)],
             ))),
         ),
         (
@@ -78,7 +77,7 @@ fn test_parsing() {
             Ok(ex_paren(ex_fun(
                 "sum",
                 vec![],
-                vec![Expression::Int(2), Expression::Int(3), Expression::Int(4)],
+                vec![ex_i(2), ex_i(3), ex_i(4)],
             ))),
         ),
         (
@@ -90,27 +89,27 @@ fn test_parsing() {
             Ok(ex_paren(ex_fun(
                 "sum_DOG",
                 vec![],
-                vec![Expression::Int(2), Expression::Int(3), Expression::Int(4)],
+                vec![ex_i(2), ex_i(3), ex_i(4)],
             ))),
         ),
         (
             r#"3 + 39"#,
-            Ok(ex_inf("+", Expression::Int(3), Expression::Int(39))),
+            Ok(ex_inf("+", ex_i(3), ex_i(39))),
         ),
         (
             r#"3 + 39 / 42.1"#,
             Ok(ex_inf(
                 "+",
-                Expression::Int(3),
-                ex_inf("/", Expression::Int(39), Expression::Float(42.1)),
+                ex_i(3),
+                ex_inf("/", ex_i(39), ex_f(42.1)),
             )),
         ),
         (
             r#"3 + 39 * 42.1"#,
             Ok(ex_inf(
                 "+",
-                Expression::Int(3),
-                ex_inf("*", Expression::Int(39), Expression::Float(42.1)),
+                ex_i(3),
+                ex_inf("*", ex_i(39), ex_f(42.1)),
             )),
         ),
         (
@@ -132,7 +131,7 @@ fn test_parsing() {
                         vec![
                             ex_id("foo"),
                             ex_id("bar"),
-                            ex_inf("*", ex_id("baz"), Expression::Int(3)),
+                            ex_inf("*", ex_id("baz"), ex_i(3)),
                         ],
                     ),
                     ex_fun("from", vec![], vec![ex_id("cats"), ex_id("dogs")]),
@@ -149,8 +148,8 @@ fn test_parsing() {
             foobar * 5"#,
             Ok(ex_let(
                 "foobar",
-                ex_inf("+", ex_adr("a1"), Expression::Int(3)),
-                ex_inf("*", ex_id("foobar"), Expression::Int(5)),
+                ex_inf("+", ex_adr("a1"), ex_i(3)),
+                ex_inf("*", ex_id("foobar"), ex_i(5)),
             )),
         ),
         (
@@ -212,7 +211,7 @@ fn test_parsing() {
     ];
 
     for item in test_exprs {
-        match (whole_expr(item.0), item.1) {
+        match (whole_expr_str(item.0), item.1) {
             (Ok(x), Ok(y)) if x == y => {
                 println!("From {} Got {:?}\n", item.0, x);
                 assert!(true)

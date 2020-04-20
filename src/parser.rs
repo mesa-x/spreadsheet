@@ -14,7 +14,9 @@ use nom::{
 };
 
 use crate::util::*;
+use nom_locate::{LocatedSpan};
 
+type Span<'a> = LocatedSpan<&'a str>;
 
 fn precedence(opr: &str) -> i32 {
     match opr {
@@ -31,48 +33,89 @@ fn test_precedence() {
     assert!(precedence("&&") < precedence("+"))
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Address {
     pub addr: String,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Range {
     pub upper_left: Address,
     pub lower_right: Address,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Expression {
-    Int(i128),
-    Float(f64),
-    Str(String),
-    DottedIdentifier(Vec<String>),
-    Identifier(String),
-    Paren(Box<Expression>),
-    Address(Address),
-    Range(Range),
-    Function(String, Vec<Expression>, Vec<Expression>),
-    Infix(String, Box<Expression>, Box<Expression>),
-    Let(String, Box<Expression>, Box<Expression>),
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct PositionInfo {
+    pub start: u32,
+    pub end: u32,
+    pub text: String,
 }
 
+pub type ParseInfo = Option<Box<PositionInfo>>;
 
+#[derive(Debug, Clone)]
+pub enum Expression {
+    Int(i128, ParseInfo),
+    Float(f64, ParseInfo),
+    Str(String, ParseInfo),
+    DottedIdentifier(Vec<String>, ParseInfo),
+    Identifier(String, ParseInfo),
+    Paren(Box<Expression>, ParseInfo),
+    Address(Address, ParseInfo),
+    Range(Range, ParseInfo),
+    Function(String, Vec<Expression>, Vec<Expression>, ParseInfo),
+    Infix(String, Box<Expression>, Box<Expression>, ParseInfo),
+    Let(String, Box<Expression>, Box<Expression>, ParseInfo),
+}
+
+impl PartialEq for Expression {
+    fn eq(self: &Expression, other: &Expression) -> bool {
+        match (self, other) {
+            (Expression::Int(x, _), Expression::Int(y, _)) if x == y => true,
+            (Expression::Float(x, _), Expression::Float(y, _)) if x == y => true,
+            (Expression::Str(x, _), Expression::Str(y, _)) if x == y => true,
+            (Expression::DottedIdentifier(x, _), Expression::DottedIdentifier(y, _)) if x == y => {
+                true
+            }
+            (Expression::Paren(x, _), Expression::Paren(y, _)) if x == y => true,
+            (Expression::Identifier(x, _), Expression::Identifier(y, _)) if x == y => true,
+            (Expression::Address(x, _), Expression::Address(y, _)) if x == y => true,
+            (Expression::Range(x, _), Expression::Range(y, _)) if x == y => true,
+            (Expression::Function(x1, x2, x3, _), Expression::Function(y1, y2, y3, _))
+                if x1 == y1 && x2 == y2 && x3 == y3 =>
+            {
+                true
+            }
+            (Expression::Infix(x1, x2, x3, _), Expression::Infix(y1, y2, y3, _))
+                if x1 == y1 && x2 == y2 && x3 == y3 =>
+            {
+                true
+            }
+            (Expression::Let(x1, x2, x3, _), Expression::Let(y1, y2, y3, _))
+                if x1 == y1 && x2 == y2 && x3 == y3 =>
+            {
+                true
+            }
+
+            _ => false,
+        }
+    }
+}
 
 /// return a function that matches a tag, but returns an `IResult<&str, String>`
-fn str_tag(to_match: &str) -> impl Fn(&str) -> IResult<&str, String> {
+fn str_tag<'a>(to_match: &str) -> impl Fn(Span<'a>) -> IResult<Span<'a>, String> {
     let the_str = to_match.to_string();
 
-    move |s: &str| {
+    move |s: Span| {
         let s2: &str = &the_str;
         tag(s2)(s).map(|(x, y)| (x, y.to_string()))
     }
 }
 
-fn not_str_tag(to_match: &str) -> impl Fn(&str) -> IResult<&str, String> {
+fn not_str_tag(to_match: &str) -> impl Fn(Span) -> IResult<Span, String> {
     let the_str = to_match.to_string();
 
-    move |s: &str| {
+    move |s: Span| {
         let s2: &str = &the_str;
         match str_tag(s2)(s) {
             Err(_) => take(1u32)(s).map(|(x, res)| (x, res.to_string())),
@@ -81,7 +124,7 @@ fn not_str_tag(to_match: &str) -> impl Fn(&str) -> IResult<&str, String> {
     }
 }
 
-fn parser_comment(input: &str) -> IResult<&str, String> {
+fn parser_comment(input: Span) -> IResult<Span, String> {
     tuple((
         &parser_whitespaces,
         delimited(
@@ -94,38 +137,47 @@ fn parser_comment(input: &str) -> IResult<&str, String> {
     .map(|(x, (_, v, _))| (x, format!("/*{}*/", vec_string_to_string(&v))))
 }
 
-fn parser_comment_as_str(input: &str) -> IResult<&str, &str> {
-    parser_comment(input).map(|(x, _)| (x, ""))
+fn parser_comment_as_str(input: Span) -> IResult<Span, Span> {
+    parser_comment(input).map(|(x, _)| (x, Span::new("")))
 }
 
 #[test]
 fn test_parser_comment() {
     assert_eq!(
-        parser_comment("/*foo*/"),
-        Ok(("", "/*foo*/".to_string())),
+        parser_comment(Span::new("/*foo*/")).map(|(_, y)| y),
+        Ok("/*foo*/".to_string()),
         "Looking for a valid comment"
     );
     assert_eq!(
-        parser_comment("/* /* foo 32 */ */"),
-        Ok(("", "/*/* foo 32 */*/".to_string()))
+        parser_comment(Span::new("/* /* foo 32 */ */")).map(|(_, y)| y),
+        Ok( "/*/* foo 32 */*/".to_string())
     );
 }
 
 /// Parse a single line comment
-fn parser_comment_eol(input: &str) -> IResult<&str, &str> {
+fn parser_comment_eol(input: Span) -> IResult<Span, Span> {
     tuple((
         tag("//#"),
         take_till(|c| c == '\r' || c == '\n'),
         &parser_whitespaces,
     ))(input)
-    .map(|(rest, _)| (rest, ""))
+    .map(|(rest, _)| (rest, Span::new("")))
 }
 
-fn parser_whitespaces(input: &str) -> IResult<&str, String> {
-    many0(is_a(" \t\n\r"))(input).map(|(x, y)| (x, vec_str_to_string(&y)))
+/// Join a `Vec` of `&str` into a `String`
+fn vec_span_to_string(v: &Vec<Span>) -> String {
+    let r2 = v.iter().fold(String::from(""), |mut sum, the_str| {
+        sum.push_str(the_str.fragment());
+        sum
+    });
+    r2
 }
 
-fn parser_comment_whitespaces(input: &str) -> IResult<&str, ()> {
+fn parser_whitespaces(input: Span) -> IResult<Span, String> {
+    many0(is_a(" \t\n\r"))(input).map(|(x, y)| (x, vec_span_to_string(&y)))
+}
+
+fn parser_comment_whitespaces(input: Span) -> IResult<Span, ()> {
     opt(many0(alt((
         is_a(" \t\n\r"),
         &parser_comment_as_str,
@@ -134,7 +186,7 @@ fn parser_comment_whitespaces(input: &str) -> IResult<&str, ()> {
     .map(|(x, _)| (x, ()))
 }
 
-fn parser_let(input: &str) -> IResult<&str, Expression> {
+fn parser_let(input: Span) -> IResult<Span, Expression> {
     tuple((
         &parser_comment_whitespaces,
         tag("let"),
@@ -148,12 +200,12 @@ fn parser_let(input: &str) -> IResult<&str, Expression> {
     .map(|(rest, (_, _, id, _, _, e1, _, e2))| {
         (
             rest,
-            Expression::Let(id.to_uppercase(), Box::from(e1), Box::from(e2)),
+            Expression::Let(id.to_uppercase(), Box::from(e1), Box::from(e2), None),
         )
     })
 }
 
-fn parser_raw_opr(input: &str) -> IResult<&str, &str> {
+fn parser_raw_opr(input: Span) -> IResult<Span, Span> {
     alt((
         tag("&&"),
         tag("=="),
@@ -166,7 +218,7 @@ fn parser_raw_opr(input: &str) -> IResult<&str, &str> {
     ))(input)
 }
 
-fn parser_opr(input: &str) -> IResult<&str, &str> {
+fn parser_opr(input: Span) -> IResult<Span, Span> {
     tuple((
         &parser_comment_whitespaces,
         &parser_raw_opr,
@@ -175,11 +227,11 @@ fn parser_opr(input: &str) -> IResult<&str, &str> {
     .map(|(rest, (_, o, _))| (rest, o))
 }
 
-fn parser_sign(input: &str) -> IResult<&str, Option<&str>> {
+fn parser_sign(input: Span) -> IResult<Span, Option<Span>> {
     opt(alt((tag("+"), tag("-"))))(input)
 }
 
-fn parser_int(input: &str) -> IResult<&str, Expression> {
+fn parser_int(input: Span) -> IResult<Span, Expression> {
     match tuple((
         opt(&parser_comment_whitespaces),
         &parser_sign,
@@ -189,12 +241,12 @@ fn parser_int(input: &str) -> IResult<&str, Expression> {
     {
         Ok((rest, (_, sign, i, _))) => {
             let sign_mult: i128 = match sign {
-                Some("-") => -1i128,
+                Some(zz) if zz == Span::new("-") => -1i128,
                 _ => 1i128,
             };
 
-            match i.parse::<i128>() {
-                Ok(i2) => Ok((rest, Expression::Int(i2 * sign_mult))),
+            match i.fragment().parse::<i128>() {
+                Ok(i2) => Ok((rest, Expression::Int(i2 * sign_mult, None))),
                 Result::Err(_) => Result::Err(Err::Error((input, ErrorKind::Digit))),
             }
         }
@@ -202,7 +254,7 @@ fn parser_int(input: &str) -> IResult<&str, Expression> {
     }
 }
 
-fn parser_float(input: &str) -> IResult<&str, Expression> {
+fn parser_float(input: Span) -> IResult<Span, Expression> {
     tuple((
         opt(&parser_comment_whitespaces),
         &parser_sign,
@@ -213,11 +265,11 @@ fn parser_float(input: &str) -> IResult<&str, Expression> {
     ))(input)
     .and_then(|(rest, (_, sign, sig, _, fr, _))| {
         let first: String = sign.map(|c| c.to_string()).unwrap_or(String::from(""));
-        let front = first + sig + ".";
-        let all = front + fr;
+        let front = first + sig.fragment() + ".";
+        let all = front + fr.fragment();
 
         match all.parse::<f64>() {
-            Ok(i2) => Ok((rest, Expression::Float(i2))),
+            Ok(i2) => Ok((rest, Expression::Float(i2, None))),
             Result::Err(_) => Result::Err(Err::Error((input, ErrorKind::Digit))),
         }
     })
@@ -227,7 +279,7 @@ fn opt_char_to_string(oc: Option<char>) -> String {
     oc.map(|c| c.to_string()).unwrap_or(String::from(""))
 }
 
-fn parser_address_addr(input: &str) -> IResult<&str, Address> {
+fn parser_address_addr(input: Span) -> IResult<Span, Address> {
     tuple((
         opt(&parser_comment_whitespaces),
         opt(char('$')),
@@ -240,32 +292,38 @@ fn parser_address_addr(input: &str) -> IResult<&str, Address> {
         (
             rest,
             Address {
-                addr: (opt_char_to_string(ab_col) + &col + &opt_char_to_string(ab_row) + &row)
-                    .to_uppercase(),
+                addr: (opt_char_to_string(ab_col)
+                    + col.fragment()
+                    + &opt_char_to_string(ab_row)
+                    + row.fragment())
+                .to_uppercase(),
             },
         )
     })
 }
 
-fn parser_address(input: &str) -> IResult<&str, Expression> {
-    parser_address_addr(input).map(|(rest, a)| (rest, Expression::Address(a)))
+fn parser_address(input: Span) -> IResult<Span, Expression> {
+    parser_address_addr(input).map(|(rest, a)| (rest, Expression::Address(a, None)))
 }
 
-fn parser_range(input: &str) -> IResult<&str, Expression> {
+fn parser_range(input: Span) -> IResult<Span, Expression> {
     tuple((&parser_address_addr, tag(":"), &parser_address_addr))(input).map(
         |(rest, (ul, _, lr))| {
             (
                 rest,
-                Expression::Range(Range {
-                    upper_left: ul,
-                    lower_right: lr,
-                }),
+                Expression::Range(
+                    Range {
+                        upper_left: ul,
+                        lower_right: lr,
+                    },
+                    None,
+                ),
             )
         },
     )
 }
 
-fn parser_paren(input: &str) -> IResult<&str, Expression> {
+fn parser_paren(input: Span) -> IResult<Span, Expression> {
     tuple((
         &parser_comment_whitespaces,
         char('('),
@@ -275,23 +333,23 @@ fn parser_paren(input: &str) -> IResult<&str, Expression> {
         char(')'),
         &parser_comment_whitespaces,
     ))(input)
-    .map(|(rest, (_, _, _, r, _, _, _))| (rest, Expression::Paren(Box::from(r))))
+    .map(|(rest, (_, _, _, r, _, _, _))| (rest, Expression::Paren(Box::from(r), None)))
 }
 
-fn parser_string(input: &str) -> IResult<&str, Expression> {
+fn parser_string(input: Span) -> IResult<Span, Expression> {
     delimited(
         tuple((opt(&parser_comment_whitespaces), tag("\""))),
         many0(is_not("\"")),
         tuple((tag("\""), opt(&parser_comment_whitespaces))),
     )(input)
-    .map(|(rest, v)| (rest, Expression::Str(vec_str_to_string(&v))))
+    .map(|(rest, v)| (rest, Expression::Str(vec_span_to_string(&v), None)))
 }
 
-fn parser_comma_list(input: &str) -> IResult<&str, Vec<Expression>> {
+fn parser_comma_list(input: Span) -> IResult<Span, Vec<Expression>> {
     separated_list(tag(","), &expr)(input)
 }
 
-fn parser_dotted_identifier(input: &str) -> IResult<&str, Expression> {
+fn parser_dotted_identifier(input: Span) -> IResult<Span, Expression> {
     tuple((
         &parser_identifier_string,
         many1(tuple((
@@ -307,64 +365,57 @@ fn parser_dotted_identifier(input: &str) -> IResult<&str, Expression> {
         for (_, _, x, _) in other {
             ret.push(x.to_uppercase());
         }
-        (rest, Expression::DottedIdentifier(ret))
+        (rest, Expression::DottedIdentifier(ret, None))
     })
 }
 
 #[test]
 fn test_parser_dotted_identifier() {
     assert_eq!(
-        parser_dotted_identifier("x.y"),
-        Ok((
-            "",
-            Expression::DottedIdentifier(vec!["X".to_string(), "Y".to_string()])
-        )),
+        parser_dotted_identifier(Span::new("x.y")).map(|(_, y)| y),
+        Ok(
+            Expression::DottedIdentifier(vec!["X".to_string(), "Y".to_string()], None)
+        ),
         "single letter variable"
     );
 
     assert_eq!(
-        parser_dotted_identifier(
+        parser_dotted_identifier(Span::new(
             "  x  .
         
         y"
+        )).map(|(_, y)| y),
+        Ok(
+            Expression::DottedIdentifier(vec!["X".to_string(), "Y".to_string()], None)
         ),
-        Ok((
-            "",
-            Expression::DottedIdentifier(vec!["X".to_string(), "Y".to_string()])
-        )),
         "single letter variable"
     );
 
     assert_eq!(
-        parser_dotted_identifier("  frog32xx. moose "),
-        Ok((
-            "",
-            Expression::DottedIdentifier(vec!["FROG32XX".to_string(), "MOOSE".to_string()])
-        ))
+        parser_dotted_identifier(Span::new("  frog32xx. moose ")).map(|(_, y)| y),
+        Ok(
+            Expression::DottedIdentifier(vec!["FROG32XX".to_string(), "MOOSE".to_string()], None)
+        )
     );
 
     assert_eq!(
-        parser_dotted_identifier(
+        parser_dotted_identifier(Span::new(
             "  frog32xx /*
         
         a comment */
         .cat
         $$$"
-        ),
-        Ok((
-            "$$$",
-            Expression::DottedIdentifier(vec!["FROG32XX".to_string(), "CAT".to_string()])
-        ))
+        )).map(|(x, y)| if x.fragment() == &"$$$" {y} else {Expression::DottedIdentifier(vec!["didn't slurp $$$".to_string()], None)}),
+        Ok( Expression::DottedIdentifier(vec!["FROG32XX".to_string(), "CAT".to_string()], None)
+        )
     );
 }
 
 fn concat_str(x: &str, y: &str) -> String {
-    let mut ret = x.to_string();
-    ret.push_str(y);
-    ret
+    x.to_string() + y
 }
 
- fn alphanumeric_or_underscore0<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
+fn alphanumeric_or_underscore0<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
 where
     T: InputTakeAtPosition,
     <T as InputTakeAtPosition>::Item: AsChar + Clone,
@@ -375,51 +426,51 @@ where
     })
 }
 
-fn parser_identifier_string(input: &str) -> IResult<&str, String> {
+fn parser_identifier_string(input: Span) -> IResult<Span, String> {
     tuple((
         &parser_comment_whitespaces,
         &alpha1,
         &alphanumeric_or_underscore0,
         &parser_comment_whitespaces,
     ))(input)
-    .map(|(rest, (_, x, y, _))| (rest, concat_str(x, y)))
+    .map(|(rest, (_, x, y, _))| (rest, concat_str(x.fragment(), y.fragment())))
 }
 
-fn parser_identifier(input: &str) -> IResult<&str, Expression> {
+fn parser_identifier(input: Span) -> IResult<Span, Expression> {
     parser_identifier_string(input)
-        .map(|(rest, x)| (rest, Expression::Identifier(x.to_uppercase())))
+        .map(|(rest, x)| (rest, Expression::Identifier(x.to_uppercase(), None)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser_util::{ex_id};
+    use crate::parser_util::ex_id;
     #[test]
     fn test_parser_identifier() {
         assert_eq!(
-            parser_identifier("x"),
-            Ok(("", ex_id("x"))),
+            parser_identifier(Span::new("x")).map(|(_, y)| y),
+            Ok( ex_id("x")),
             "single letter variable"
         );
 
         assert_eq!(
-            parser_identifier("  frog32xx "),
-            Ok(("", ex_id("FROG32XX")))
+            parser_identifier(Span::new("  frog32xx ")).map(|(_, y)| y),
+            Ok( ex_id("FROG32XX"))
         );
 
         assert_eq!(
-            parser_identifier(
+            parser_identifier(Span::new(
                 "  frog32xx
         
         
         $$$"
-            ),
-            Ok(("$$$", ex_id("FROG32XX")))
+            )).map(|(_, y)| y),
+            Ok(ex_id("FROG32XX"))
         );
     }
 }
 
-fn parser_function(input: &str) -> IResult<&str, Expression> {
+fn parser_function(input: Span) -> IResult<Span, Expression> {
     tuple((
         &parser_identifier_string,
         opt(delimited(tag("["), &parser_comma_list, tag("]"))), // FIXME whitespace
@@ -436,29 +487,31 @@ fn parser_function(input: &str) -> IResult<&str, Expression> {
                     _ => vec![],
                 },
                 params,
+                None,
             ),
         )
     })
 }
 
-fn parser_opr_exp(input: &str) -> IResult<&str, Expression> {
+fn parser_opr_exp(input: Span) -> IResult<Span, Expression> {
     tuple((&expr_mini, parser_opr, &expr))(input).map(|(rest, (left, oprs, right))| {
         let opr = oprs.to_string();
         let rexp = match right {
-            Expression::Infix(o2, sub_left, sub_right) if precedence(&o2) < precedence(&opr) => {
+            Expression::Infix(o2, sub_left, sub_right, _) if precedence(&o2) < precedence(&opr) => {
                 Expression::Infix(
                     o2,
-                    Box::from(Expression::Infix(opr, Box::from(left), sub_left)),
+                    Box::from(Expression::Infix(opr, Box::from(left), sub_left, None)),
                     sub_right,
+                    None,
                 )
             }
-            _ => Expression::Infix(opr, Box::from(left), Box::from(right)),
+            _ => Expression::Infix(opr, Box::from(left), Box::from(right), None),
         };
         (rest, rexp)
     })
 }
 
-fn expr_mini(input: &str) -> IResult<&str, Expression> {
+fn expr_mini(input: Span) -> IResult<Span, Expression> {
     alt((
         &parser_let,
         &parser_paren,
@@ -473,7 +526,7 @@ fn expr_mini(input: &str) -> IResult<&str, Expression> {
     ))(input)
 }
 
-fn expr(input: &str) -> IResult<&str, Expression> {
+fn expr(input: Span) -> IResult<Span, Expression> {
     alt((
         &parser_let,
         &parser_opr_exp,
@@ -489,44 +542,46 @@ fn expr(input: &str) -> IResult<&str, Expression> {
     ))(input)
 }
 
-
-
 // pub fn tvs(input: Vec<&str>) -> Vec<String> {
 //     input.iter().map(|s| s.to_string().to_uppercase()).collect()
 // }
-
 
 #[test]
 fn test_expr() {
     use crate::parser_util::{ex_dot, ex_fun, ex_id};
 
-    assert_eq!(expr(" foo /* cat */ "), Ok(("", ex_id("FOO"))));
+    assert_eq!(expr(Span::new(" foo /* cat */ ")).map(|(_, y)| y), Ok( ex_id("FOO")));
 
     assert_eq!(
-        expr(
+        expr(Span::new(
             " cat(dog, 
             
             moose.cat, /*mo
             
             
-            oo*/ rat.s.s) /* meow */"
-        ),
-        Ok((
-            "",
-            ex_fun("cat", vec![],
+            oo*/ rat.s.s) /* meow */")
+        ).map(|(_, y)| y),
+        Ok(
+            ex_fun(
+                "cat",
+                vec![],
                 vec![
                     ex_id("DOG"),
                     ex_dot(vec!["moose", "cat"]),
                     ex_dot(vec!["rat", "s", "s"])
                 ]
             )
-        ))
+        )
     );
 }
 
-pub fn whole_expr(input: &str) -> Result<Expression, nom::Err<(&str, ErrorKind)>> {
+pub fn whole_expr_str<'a>(input: &'a str) -> Result<Expression, nom::Err<(Span<'a>, ErrorKind)>> {
+    whole_expr(Span::new(input))
+}
+
+pub fn whole_expr(input: Span) -> Result<Expression, nom::Err<(Span, ErrorKind)>> {
     match tuple((opt(tag("=")), &expr))(input) {
-        Ok(("", (_, e))) => Ok(e),
+        Ok((zz, (_, e))) if zz.fragment() == &"" => Ok(e),
         Ok((rest, _)) => Result::Err(nom::Err::Error((rest, ErrorKind::Complete))),
         Result::Err(x) => Result::Err(x), // Err(Err(_, error)) => Err(error)
     }
