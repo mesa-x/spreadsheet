@@ -4,6 +4,10 @@ pub mod util;
 
 pub mod parser_util;
 
+pub mod eval_stack;
+
+pub mod eval;
+
 use im::HashMap;
 
 fn foo() -> HashMap<String, String> {

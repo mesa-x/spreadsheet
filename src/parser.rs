@@ -14,7 +14,7 @@ use nom::{
 };
 
 use crate::util::*;
-use nom_locate::{LocatedSpan};
+use nom_locate::LocatedSpan;
 
 type Span<'a> = LocatedSpan<&'a str>;
 
@@ -46,12 +46,25 @@ pub struct Range {
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct PositionInfo {
-    pub start: u32,
-    pub end: u32,
+    pub start: usize,
+    pub start_line: u32,
+    pub end: usize,
+    pub end_line: u32,
     pub text: String,
 }
 
 pub type ParseInfo = Option<Box<PositionInfo>>;
+
+fn parse_info(start: &Span, end: &Span) -> ParseInfo {
+    let inner = PositionInfo {
+        start: start.location_offset(),
+        start_line: start.location_line(),
+        end: end.location_offset(),
+        end_line: end.location_line(),
+        text: start.fragment()[..(end.location_offset() - start.location_offset())].to_string(),
+    };
+    Some(Box::from(inner))
+}
 
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -150,7 +163,7 @@ fn test_parser_comment() {
     );
     assert_eq!(
         parser_comment(Span::new("/* /* foo 32 */ */")).map(|(_, y)| y),
-        Ok( "/*/* foo 32 */*/".to_string())
+        Ok("/*/* foo 32 */*/".to_string())
     );
 }
 
@@ -200,7 +213,12 @@ fn parser_let(input: Span) -> IResult<Span, Expression> {
     .map(|(rest, (_, _, id, _, _, e1, _, e2))| {
         (
             rest,
-            Expression::Let(id.to_uppercase(), Box::from(e1), Box::from(e2), None),
+            Expression::Let(
+                id.to_uppercase(),
+                Box::from(e1),
+                Box::from(e2),
+                parse_info(&input, &rest),
+            ),
         )
     })
 }
@@ -246,7 +264,10 @@ fn parser_int(input: Span) -> IResult<Span, Expression> {
             };
 
             match i.fragment().parse::<i128>() {
-                Ok(i2) => Ok((rest, Expression::Int(i2 * sign_mult, None))),
+                Ok(i2) => Ok((
+                    rest,
+                    Expression::Int(i2 * sign_mult, parse_info(&input, &rest)),
+                )),
                 Result::Err(_) => Result::Err(Err::Error((input, ErrorKind::Digit))),
             }
         }
@@ -269,7 +290,7 @@ fn parser_float(input: Span) -> IResult<Span, Expression> {
         let all = front + fr.fragment();
 
         match all.parse::<f64>() {
-            Ok(i2) => Ok((rest, Expression::Float(i2, None))),
+            Ok(i2) => Ok((rest, Expression::Float(i2, parse_info(&input, &rest)))),
             Result::Err(_) => Result::Err(Err::Error((input, ErrorKind::Digit))),
         }
     })
@@ -303,7 +324,8 @@ fn parser_address_addr(input: Span) -> IResult<Span, Address> {
 }
 
 fn parser_address(input: Span) -> IResult<Span, Expression> {
-    parser_address_addr(input).map(|(rest, a)| (rest, Expression::Address(a, None)))
+    parser_address_addr(input)
+        .map(|(rest, a)| (rest, Expression::Address(a, parse_info(&input, &rest))))
 }
 
 fn parser_range(input: Span) -> IResult<Span, Expression> {
@@ -316,7 +338,7 @@ fn parser_range(input: Span) -> IResult<Span, Expression> {
                         upper_left: ul,
                         lower_right: lr,
                     },
-                    None,
+                    parse_info(&input, &rest),
                 ),
             )
         },
@@ -333,7 +355,12 @@ fn parser_paren(input: Span) -> IResult<Span, Expression> {
         char(')'),
         &parser_comment_whitespaces,
     ))(input)
-    .map(|(rest, (_, _, _, r, _, _, _))| (rest, Expression::Paren(Box::from(r), None)))
+    .map(|(rest, (_, _, _, r, _, _, _))| {
+        (
+            rest,
+            Expression::Paren(Box::from(r), parse_info(&input, &rest)),
+        )
+    })
 }
 
 fn parser_string(input: Span) -> IResult<Span, Expression> {
@@ -342,7 +369,12 @@ fn parser_string(input: Span) -> IResult<Span, Expression> {
         many0(is_not("\"")),
         tuple((tag("\""), opt(&parser_comment_whitespaces))),
     )(input)
-    .map(|(rest, v)| (rest, Expression::Str(vec_span_to_string(&v), None)))
+    .map(|(rest, v)| {
+        (
+            rest,
+            Expression::Str(vec_span_to_string(&v), parse_info(&input, &rest)),
+        )
+    })
 }
 
 fn parser_comma_list(input: Span) -> IResult<Span, Vec<Expression>> {
@@ -365,7 +397,10 @@ fn parser_dotted_identifier(input: Span) -> IResult<Span, Expression> {
         for (_, _, x, _) in other {
             ret.push(x.to_uppercase());
         }
-        (rest, Expression::DottedIdentifier(ret, None))
+        (
+            rest,
+            Expression::DottedIdentifier(ret, parse_info(&input, &rest)),
+        )
     })
 }
 
@@ -373,9 +408,10 @@ fn parser_dotted_identifier(input: Span) -> IResult<Span, Expression> {
 fn test_parser_dotted_identifier() {
     assert_eq!(
         parser_dotted_identifier(Span::new("x.y")).map(|(_, y)| y),
-        Ok(
-            Expression::DottedIdentifier(vec!["X".to_string(), "Y".to_string()], None)
-        ),
+        Ok(Expression::DottedIdentifier(
+            vec!["X".to_string(), "Y".to_string()],
+            None
+        )),
         "single letter variable"
     );
 
@@ -384,18 +420,21 @@ fn test_parser_dotted_identifier() {
             "  x  .
         
         y"
-        )).map(|(_, y)| y),
-        Ok(
-            Expression::DottedIdentifier(vec!["X".to_string(), "Y".to_string()], None)
-        ),
+        ))
+        .map(|(_, y)| y),
+        Ok(Expression::DottedIdentifier(
+            vec!["X".to_string(), "Y".to_string()],
+            None
+        )),
         "single letter variable"
     );
 
     assert_eq!(
         parser_dotted_identifier(Span::new("  frog32xx. moose ")).map(|(_, y)| y),
-        Ok(
-            Expression::DottedIdentifier(vec!["FROG32XX".to_string(), "MOOSE".to_string()], None)
-        )
+        Ok(Expression::DottedIdentifier(
+            vec!["FROG32XX".to_string(), "MOOSE".to_string()],
+            None
+        ))
     );
 
     assert_eq!(
@@ -405,9 +444,16 @@ fn test_parser_dotted_identifier() {
         a comment */
         .cat
         $$$"
-        )).map(|(x, y)| if x.fragment() == &"$$$" {y} else {Expression::DottedIdentifier(vec!["didn't slurp $$$".to_string()], None)}),
-        Ok( Expression::DottedIdentifier(vec!["FROG32XX".to_string(), "CAT".to_string()], None)
-        )
+        ))
+        .map(|(x, y)| if x.fragment() == &"$$$" {
+            y
+        } else {
+            Expression::DottedIdentifier(vec!["didn't slurp $$$".to_string()], None)
+        }),
+        Ok(Expression::DottedIdentifier(
+            vec!["FROG32XX".to_string(), "CAT".to_string()],
+            None
+        ))
     );
 }
 
@@ -437,8 +483,12 @@ fn parser_identifier_string(input: Span) -> IResult<Span, String> {
 }
 
 fn parser_identifier(input: Span) -> IResult<Span, Expression> {
-    parser_identifier_string(input)
-        .map(|(rest, x)| (rest, Expression::Identifier(x.to_uppercase(), None)))
+    parser_identifier_string(input).map(|(rest, x)| {
+        (
+            rest,
+            Expression::Identifier(x.to_uppercase(), parse_info(&input, &rest)),
+        )
+    })
 }
 
 #[cfg(test)]
@@ -449,13 +499,13 @@ mod tests {
     fn test_parser_identifier() {
         assert_eq!(
             parser_identifier(Span::new("x")).map(|(_, y)| y),
-            Ok( ex_id("x")),
+            Ok(ex_id("x")),
             "single letter variable"
         );
 
         assert_eq!(
             parser_identifier(Span::new("  frog32xx ")).map(|(_, y)| y),
-            Ok( ex_id("FROG32XX"))
+            Ok(ex_id("FROG32XX"))
         );
 
         assert_eq!(
@@ -464,7 +514,8 @@ mod tests {
         
         
         $$$"
-            )).map(|(_, y)| y),
+            ))
+            .map(|(_, y)| y),
             Ok(ex_id("FROG32XX"))
         );
     }
@@ -487,7 +538,7 @@ fn parser_function(input: Span) -> IResult<Span, Expression> {
                     _ => vec![],
                 },
                 params,
-                None,
+                parse_info(&input, &rest),
             ),
         )
     })
@@ -500,12 +551,17 @@ fn parser_opr_exp(input: Span) -> IResult<Span, Expression> {
             Expression::Infix(o2, sub_left, sub_right, _) if precedence(&o2) < precedence(&opr) => {
                 Expression::Infix(
                     o2,
-                    Box::from(Expression::Infix(opr, Box::from(left), sub_left, None)),
+                    Box::from(Expression::Infix(opr, Box::from(left), sub_left, None)), // FIXME -- can we get the parse info for the span?
                     sub_right,
-                    None,
+                    parse_info(&input, &rest),
                 )
             }
-            _ => Expression::Infix(opr, Box::from(left), Box::from(right), None),
+            _ => Expression::Infix(
+                opr,
+                Box::from(left),
+                Box::from(right),
+                parse_info(&input, &rest),
+            ),
         };
         (rest, rexp)
     })
@@ -550,7 +606,10 @@ fn expr(input: Span) -> IResult<Span, Expression> {
 fn test_expr() {
     use crate::parser_util::{ex_dot, ex_fun, ex_id};
 
-    assert_eq!(expr(Span::new(" foo /* cat */ ")).map(|(_, y)| y), Ok( ex_id("FOO")));
+    assert_eq!(
+        expr(Span::new(" foo /* cat */ ")).map(|(_, y)| y),
+        Ok(ex_id("FOO"))
+    );
 
     assert_eq!(
         expr(Span::new(
@@ -559,19 +618,18 @@ fn test_expr() {
             moose.cat, /*mo
             
             
-            oo*/ rat.s.s) /* meow */")
-        ).map(|(_, y)| y),
-        Ok(
-            ex_fun(
-                "cat",
-                vec![],
-                vec![
-                    ex_id("DOG"),
-                    ex_dot(vec!["moose", "cat"]),
-                    ex_dot(vec!["rat", "s", "s"])
-                ]
-            )
-        )
+            oo*/ rat.s.s) /* meow */"
+        ))
+        .map(|(_, y)| y),
+        Ok(ex_fun(
+            "cat",
+            vec![],
+            vec![
+                ex_id("DOG"),
+                ex_dot(vec!["moose", "cat"]),
+                ex_dot(vec!["rat", "s", "s"])
+            ]
+        ))
     );
 }
 
