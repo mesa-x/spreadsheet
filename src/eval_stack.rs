@@ -62,7 +62,7 @@ fn do_create_eval_stack(
 
 #[test]
 fn test_create_stack() {
-    let ex = whole_expr_str("(20 * 2) + 1 + 1 * \"dogs\" ").unwrap();
+    let ex = whole_expr_str("(20 * 2) + 1 + 1 ").unwrap();
     let res = create_eval_stack(&ex, &vec![]);
     println!("Res is {:?}", res);
     assert!(res.is_ok());
