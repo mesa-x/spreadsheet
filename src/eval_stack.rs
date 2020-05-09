@@ -1,5 +1,4 @@
-use crate::eval::{eval, Value};
-use crate::parser::{whole_expr_str, Expression};
+use crate::parser::Expression;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum EvalStack {
@@ -62,6 +61,8 @@ fn do_create_eval_stack(
 
 #[test]
 fn test_create_stack() {
+    use crate::eval::{eval, Value};
+    use crate::parser::whole_expr_str;
     let ex = whole_expr_str("(20 * 2) + 1 + 1 ").unwrap();
     let res = create_eval_stack(&ex, &vec![]);
     println!("Res is {:?}", res);

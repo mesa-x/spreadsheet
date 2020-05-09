@@ -1,0 +1,26 @@
+= Early Thinking
+
+This document captures a bunch of notes that @dpp 
+jotted down as he thought about how to evolve spreadsheets.
+
+image::images/2019-11-03_mesa_thinking.jpeg[Nov 3, 2019]
+
+image::images/2019-11-09_mesa_thinking.jpeg[Nov 9, 2019]
+
+image::images/2019-11-09_mesa_thinking_core.jpeg[Nov 9 core, 2019]
+
+image::images/2019-11-09_mesa_thinking_projection.jpeg[Nov 9 projections, 2019]
+
+image::images/2019-11-24_mesa_thinking.jpeg[Nov 24, 2019]
+
+
+image::images/2019-12-08_mesa_thinking.jpeg[Dec 8, 2019]
+
+image::images/2019-12-29_mesa_thinking.jpeg[Dec 29, 2019]
+
+image::images/2019-12-29__mesa_thinking_parser.jpeg[Dec 29 parser, 2019]
+
+image::images/2020-01-11_mesa_thinking_words.jpeg[Jan 11, 2020]
+
+
+image::images/2020-01-12_mesa_thinking.jpeg[Jan 12, 2020]

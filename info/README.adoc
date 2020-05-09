@@ -1,0 +1,10 @@
+= Info
+
+This directory contains various design documents, etc.
+for the Mesa X project.
+
+== Key stuff to read
+
+link:early_thinking.adoc[Some early thoughts]
+
+link:formulas.adoc[Information/Thoughts on Formulas]
