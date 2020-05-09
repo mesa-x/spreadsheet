@@ -115,7 +115,7 @@ fn test_parsing() {
         (
             r#"SELECT[DISTINCT](
                     
-                    ITEMS(foo, bar, baz * 3), /* I like yaks */
+                    ITEMS(cats.foo, dogs.bar, cats.baz * 3), /* I like yaks */
                     FROM(cats, dogs), //# End of line comment
                     GROUP_BY(),
                     HAVING(),
@@ -129,9 +129,9 @@ fn test_parsing() {
                         "items",
                         vec![],
                         vec![
-                            ex_id("foo"),
-                            ex_id("bar"),
-                            ex_inf("*", ex_id("baz"), ex_i(3)),
+                            ex_dot(vec!["cats","foo"]),
+                            ex_dot(vec!["dogs","bar"]),
+                            ex_inf("*", ex_dot(vec!["cats","baz"]), ex_i(3)),
                         ],
                     ),
                     ex_fun("from", vec![], vec![ex_id("cats"), ex_id("dogs")]),
