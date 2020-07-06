@@ -1,4 +1,5 @@
 use crate::parser::Expression;
+use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum EvalStack {
@@ -8,11 +9,31 @@ pub enum EvalStack {
     PerformOpr(String),
 }
 
-pub enum BuilderParams {}
+pub enum BuilderParams {
+    Choice(bool), // A boolean true/false choice
+    Other(String), // Some other structure expressed as a string -- complex stuff maybe as JSON?
+    OtherMap(HashMap<String, String>) // an "Other" expressed as a map
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub enum Types {
+    Int, Float, Str
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct OperatorInfo {
+    operator: String,
+    num_type_param: u16,
+    type_param_type: HashMap<u16, Types>,
+    num_params: u16,
+    param_type: HashMap<u16, Vec<Types>>,
+
+
+}
 
 type BuildResult = Result<Vec<EvalStack>, String>;
 
-pub fn create_eval_stack(expr: &Expression, params: &Vec<BuilderParams>) -> BuildResult {
+pub fn create_eval_stack(expr: &Expression, params: &HashMap<String, BuilderParams>) -> BuildResult {
     let mut to_populate: Vec<EvalStack> = vec![];
 
     match do_create_eval_stack(expr, params, &mut to_populate) {
@@ -23,7 +44,7 @@ pub fn create_eval_stack(expr: &Expression, params: &Vec<BuilderParams>) -> Buil
 
 fn do_create_eval_stack(
     expr: &Expression,
-    params: &Vec<BuilderParams>,
+    params: &HashMap<String, BuilderParams>,
     to_populate: &mut Vec<EvalStack>,
 ) -> Result<(), String> {
     match expr {
@@ -64,7 +85,7 @@ fn test_create_stack() {
     use crate::eval::{eval, Value};
     use crate::parser::whole_expr_str;
     let ex = whole_expr_str("(20 * 2) + 1 + 1 ").unwrap();
-    let res = create_eval_stack(&ex, &vec![]);
+    let res = create_eval_stack(&ex, &HashMap::new());
     println!("Res is {:?}", res);
     assert!(res.is_ok());
     let computed = eval(&res.unwrap());

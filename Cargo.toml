@@ -3,11 +3,27 @@ name = "mesax"
 version = "0.1.0"
 authors = ["David Pollak <feeder.of.the.bears@gmail.com>"]
 edition = "2018"
+homepage = "https://mesa-x.org/"
+repository = "https://github.com/mesa-x/spreadsheet"
+license = "Apache-2.0"
 
+[[bin]]
+name = "helloworld-client"
+path = "src/helloworld/client.rs"
 
+[[bin]]
+name = "helloworld-server"
+path = "src/helloworld/server.rs"
 
 [dependencies]
-# combine = "4.0.1"
-nom = "5.1.1"
-nom_locate = "2.0"
-im = { version = "14.3.0", features = ["proptest", "serde"] }
+nom = "~5"
+nom_locate = "~2"
+serde = "~1"
+im = { version = "~15", features = ["proptest", "serde"] }
+lazy_static = "~1.4"
+tonic = { version="~0.2", features = ["tls"] }
+tokio = { version = "~0.2", features = ["rt-threaded", "time", "stream", "fs", "macros", "uds"] }
+prost = "~0.6"
+
+[build-dependencies]
+tonic-build = { version="~0.2", features = ["prost"] }
