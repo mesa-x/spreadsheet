@@ -209,7 +209,7 @@ MATCH(
 
 == Conclusion
 
-THe above enhancements to spreadsheet syntax are
+The above enhancements to spreadsheet syntax are
 reasonable evolutions to the existing formula
 syntax. They should be understandable to an
 Excel user, and, yet, they provide the power
