@@ -17,5 +17,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("RESPONSE={:?}", response.get_ref().message);
 
+    let request2 = tonic::Request::new(HelloRequest {
+        name: "dpp".into(),
+    });
+
+    let mut messages = client.hello_over_again(request2).await?.into_inner();
+
+    while let Some(stream_response) = messages.message().await? {
+        println!("Streaming response={:?}", stream_response.message);
+    }
+
     Ok(())
 }

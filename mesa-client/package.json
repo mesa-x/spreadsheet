@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@improbable-eng/grpc-web": "^0.12.0",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.5.0",
     "@testing-library/user-event": "^7.2.1",
@@ -10,18 +11,24 @@
     "@types/node": "^12.12.50",
     "@types/react": "^16.9.43",
     "@types/react-dom": "^16.9.8",
+    "google-protobuf": "^3.12.2",
+    "grpc": "^1.24.3",
+    "grpc-tools": "^1.9.0",
     "react": "^16.13.1",
     "react-datasheet": "^1.4.6",
     "react-dom": "^16.13.1",
     "react-scripts": "3.4.1",
+    "ts-protoc-gen": "^0.12.0",
     "typescript": "^3.7.5"
   },
   "scripts": {
+    "protoc": "rm -rf src/static_codegen/proto && protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --js_out=import_style=commonjs,binary:src/static_codegen --ts_out=service=grpc-web:src/static_codegen -I .. ../proto/*.proto && for fnm in $(ls src/static_codegen/proto/*.js); do echo \"/* eslint-disable */\n$(cat ${fnm})\" > ${fnm}; done",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
+  "proxy": "http://localhost:8080",
   "eslintConfig": {
     "extends": "react-app"
   },

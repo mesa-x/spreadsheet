@@ -18,4 +18,43 @@ The project is licensed under an Apache 2.0 license. If
 there are cool things to be done with spreadsheets, let's
 make them universally available.
 
+== Development Configuration
+
+Here's how https://github.com/dpp[@dpp] has his system configured. Your config may vary.
+
+=== Ubuntu 20.04
+
+Rust: install https://rustup.rs[Rust Up] and https://packages.ubuntu.com/focal/build-essential[Build Essentail]
+to compile and test Rust code.
+
+Install https://packages.ubuntu.com/focal/npm[npm] which gets you NodeJS and such as well.
+
+Communication between browser and the spreadsheet server is via gRPC-Web... and the
+client code uses https://github.com/improbable-eng/grpc-web[Improbable gRPC-Web] as
+it has better support for TypeScript... at least in July 2020 when @dpp made the call
+to use Improbable's stuff.
+
+Install the https://packages.ubuntu.com/focal/protobuf-compiler[ProtoC] Protobuf compiler.
+
+== Getting started/hello world
+
+Open 3 terminal windows.
+
+In the first window, at the top level directory, type `cargo test` to build and test the code. Once
+the code is built, run the "`Hello World`" server: `./target/debug/helloworld-server`
+
+In the second window, cd into the `3rd_party_bin` directory and type: `./start_grpc_web_proxy.sh`
+to start the gRPC-Web -> gRPC proxy.
+
+In the third window, cd into the `mesa-client` directory and type:
+
+* `npm install` to install all the dependencies
+* `npm run protoc` to compile the `.proto` files into TypeScript files
+* `npm start` to start the application
+
+In your browser, click the "`Activate Laser`" button to initiate browser -> Rust gRPC
+
+Most of this stuff is the building blocks for interprocess communication. It will evolve into
+the spreadsheet client running in the browser communicating over gRPC to the server.
+
 Pull requests welcome.

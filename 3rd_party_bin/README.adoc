@@ -1,0 +1,7 @@
+= gRPC-Web Proxy
+
+This directory contains the gRPC-Web
+proxy from https://github.com/improbable-eng/grpc-web/releases[Improbable Web].
+
+To start the proxy, type: `start_grpc_web_proxy.sh`
+

@@ -19,6 +19,9 @@ path = "src/helloworld/server.rs"
 nom = "~5"
 nom_locate = "~2"
 serde = "~1"
+async-stream = "~0.2"
+rand = "~0.7"
+async-timer = "~0.7"
 im = { version = "~15", features = ["proptest", "serde"] }
 lazy_static = "~1.4"
 tonic = { version="~0.2", features = ["tls"] }

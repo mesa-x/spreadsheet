@@ -2,10 +2,8 @@ import * as React from 'react';
 import ReactDataSheet from 'react-datasheet';
 import "react-datasheet/lib/react-datasheet.css";
 import { isNumber } from 'util';
-// const { HelloRequest, RepeatHelloRequest,
-//   HelloReply } = require('../../proto/hello_world_pb.js');
-// const { GreeterClient } = require('../../proto/hello_world_grpc_web_pb.js');
-
+import { HelloRequest } from "./static_codegen/proto/hello_world_pb";
+import { GreeterClient } from "./static_codegen/proto/hello_world_pb_service";
 export interface GridElement extends ReactDataSheet.Cell<GridElement, number> {
   value: number | string | null;
 }
@@ -14,6 +12,7 @@ class MyReactDataSheet extends ReactDataSheet<GridElement, number> { }
 
 interface AppState {
   grid: GridElement[][];
+  messages: string[];
 }
 
 //You can also strongly type all the Components or SFCs that you pass into ReactDataSheet.
@@ -64,13 +63,38 @@ export default class App extends React.Component<{}, AppState> {
       grid: [
         [{ value: 1 }, { value: -3 }],
         [{ value: -2 }, { value: 4 }]
-      ]
+      ],
+      messages: [""],
     }
 
   }
   private activateLasers() {
     this.updateNumberValue(1, 0, x => x + 4)
+    var msg = new HelloRequest()
+    msg.setName("David")
+    var gc = new GreeterClient("http://" + window.location.hostname + ":3000/")
+    gc.sayHello(msg, (err, resp) => {
+      if (err !== null) {
+        console.log("Got an error ", err)
+      } else if (resp != null) {
+        console.log("Got a response", resp)
+        console.log("Message: ", resp.getMessage())
+        this.state.messages.push(resp.getMessage() + " at " + (new Date()))
+
+        
+      }
+    })
+    var respStream = gc.helloOverAgain(msg)
+
+    respStream.on('data', msg => {
+      this.state.messages.push(msg.getMessage() + " count "+ msg.getCount() + " at " + (new Date()))
+    })
+
+    respStream.on('end', e => {console.log(e)})
+
   }
+
+
   render() {
     this.doLoop()
     return (
@@ -78,6 +102,13 @@ export default class App extends React.Component<{}, AppState> {
         <button onClick={this.activateLasers.bind(this)}>
           Activate Lasers
         </button>
+        <div>
+          <table>
+            <tbody>
+              {this.state.messages.map((e, i) => <tr key={i}><td>{e}</td></tr>)}
+            </tbody>
+          </table>
+        </div>
         <MyReactDataSheet
           data={this.state.grid}
           valueRenderer={(cell) => cell.value}
