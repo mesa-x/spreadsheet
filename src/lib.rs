@@ -8,6 +8,10 @@ pub mod eval_stack;
 
 pub mod eval;
 
+pub mod definitions;
+
+pub mod workbook;
+
 //use im::HashMap;
 
 // fn foo() -> HashMap<String, String> {
