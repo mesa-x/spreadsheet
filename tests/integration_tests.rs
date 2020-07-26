@@ -213,7 +213,6 @@ fn test_parsing() {
     for item in test_exprs {
         match (whole_expr_str(item.0), item.1) {
             (Ok(x), Ok(y)) if x == y => {
-                println!("From {} Got {:?}\n", item.0, x);
                 assert!(true)
             }
             (Ok(x), Ok(y)) => assert!(

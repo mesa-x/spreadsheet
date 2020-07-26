@@ -24,9 +24,10 @@ rand = "~0.7"
 async-timer = "~0.7"
 im = { version = "~15", features = ["proptest", "serde"] }
 lazy_static = "~1.4"
-tonic = { version="~0.2", features = ["tls"] }
+tonic = { version="~0.3", features = ["tls"] }
 tokio = { version = "~0.2", features = ["rt-threaded", "time", "stream", "fs", "macros", "uds"] }
 prost = "~0.6"
+atomic-counter = "~1"
 
 [build-dependencies]
-tonic-build = { version="~0.2", features = ["prost"] }
+tonic-build = { version="~0.3", features = ["prost"] }

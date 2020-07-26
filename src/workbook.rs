@@ -16,9 +16,11 @@
 // limitations under the License.
 
 use crate::definitions::SheetIdentifier;
+use atomic_counter::{AtomicCounter, RelaxedCounter};
 use std::sync::{Arc, Mutex};
 use std::thread::spawn;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorksheetCommand {
@@ -32,14 +34,14 @@ pub enum CommandResponse {
 #[derive(Debug, Clone)]
 pub struct CommandWrapper {
     command: WorksheetCommand,
-    reply_channel: Option<Sender<Box<CommandResponse>>>,
+    reply_channel: Option<Sender<CommandResponse>>,
 }
 
 #[derive(Debug)]
 pub struct Workbook {
-    sender_chan: Sender<Box<CommandWrapper>>,
-    receiver_chan: Arc<Mutex<Receiver<Box<CommandWrapper>>>>,
-    command_cnt: Arc<Mutex<u64>>,
+    sender_chan: Sender<CommandWrapper>,
+    receiver_chan: Mutex<Receiver<CommandWrapper>>,
+    command_cnt: RelaxedCounter,
 }
 
 #[derive(Debug)]
@@ -66,77 +68,38 @@ impl Workbook {
         let (tx, rx) = channel(100); // default backpressure TODO variable backpressure
         let ret = Workbook {
             sender_chan: tx,
-            receiver_chan: Arc::new(Mutex::new(rx)),
-            command_cnt: Arc::new(Mutex::new(0)),
+            receiver_chan: Mutex::new(rx),
+            command_cnt: RelaxedCounter::new(0),
         };
 
-        ret.listen_for_commands();
+        let ret = Arc::new(ret);
 
-        let aret = Arc::new(ret);
+        listen_for_commands(&ret);
 
-        return aret;
+        ret
     }
 
-    pub fn get_command_count(&self) -> u64 {
-        match self.command_cnt.lock() {
-            Ok(r) => *r,
-            _ => 0
-        }
+    pub fn get_command_count(&self) -> usize {
+        self.command_cnt.get()
     }
 
     pub async fn send_command(
         &self,
-        cmd: &WorksheetCommand,
+        cmd: WorksheetCommand,
     ) -> Result<CommandResponse, Box<dyn std::error::Error>> {
         let (rc, mut info) = channel(1);
         let wrapper = CommandWrapper {
-            command: cmd.clone(),
+            command: cmd,
             reply_channel: Some(rc),
         };
-        let the_box = Box::new(wrapper);
         let mut send_chan = self.sender_chan.clone();
-        send_chan.send(the_box).await?;
+        send_chan.send(wrapper).await?;
         match info.recv().await {
-            Some(x) => Ok(*x),
+            Some(x) => Ok(x),
             None => Err(Box::new(StringError {
                 msg: "Failed to receive".into(),
             })),
         }
-    }
-
-    /// Spawn a thread (not super keen about this, but whatever)
-    fn listen_for_commands(&self) {
-        let rec_chan = self.receiver_chan.clone();
-        let cnt_mut = self.command_cnt.clone();
-        spawn(move || {
-            let f1 = async {
-                match rec_chan.lock() {
-                    Ok(mut rx) => {
-                        println!("Waiting for messages!");
-                        while let Some(msg) = rx.recv().await {
-                            println!("Message {:?}", msg.command);
-                            match cnt_mut.lock() {
-                                Ok(mut mg) => *mg += 1,
-                                _ => ()
-                            };
-                            match msg.reply_channel {
-                                Some(mut rc) => {
-                                    let _ = rc.send(Box::new(CommandResponse::OkResp)).await;
-                                    ()
-                                }
-                                None => (),
-                            }
-                        }
-                    }
-                    Err(e) => println!("Unable to unwrap receive channel {}", e),
-                }
-                println!("Done with listen loop");
-            };
-
-            let mut runtime = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
-            runtime.block_on(f1);
-            println!("Finished blocking!");
-        });
     }
 
     async fn get_sheets(&self) -> Vec<Box<dyn SheetIdentifier>> {
@@ -144,26 +107,28 @@ impl Workbook {
     }
 }
 
+/// Spawn a thread (not super keen about this, but whatever)
 fn listen_for_commands(workbook: &ArcWorkbook) {
-    let wbc = workbook.clone();
+    let book = workbook.clone();
+
     spawn(move || {
         let f1 = async {
-            match wbc.as_ref().receiver_chan.clone().lock() {
+            match book.receiver_chan.lock() {
                 Ok(mut rx) => {
-                    println!("Waiting for messages!");
                     while let Some(msg) = rx.recv().await {
-                        println!("Message {:?}", msg);
+                        // FIXME dispatch message
+                        book.command_cnt.inc();
                         match msg.reply_channel {
                             Some(mut rc) => {
-                                let _ = rc.send(Box::new(CommandResponse::OkResp)).await;
+                                let _ = rc.send(CommandResponse::OkResp).await;
                                 ()
                             }
                             None => (),
                         }
                     }
                 }
-                Err(e) => println!("Unable to unwrap receive channel {}", e),
-            }
+                _ => (),
+            };
         };
 
         let mut runtime = tokio::runtime::Runtime::new().expect("Unable to create a runtime");

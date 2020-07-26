@@ -4,15 +4,15 @@ use mesax::workbook::*;
 fn test_workbook_creation() {
     let f1 = async {
         let wb = Workbook::new();
-        let _ = wb.clone().send_command(&WorksheetCommand::Noop).await;
+        let _ = wb.send_command(WorksheetCommand::Noop).await;
+
         (
-            wb.clone().send_command(&WorksheetCommand::Noop).await,
-            wb.get_command_count(),
+            wb.send_command(WorksheetCommand::Noop).await,
+            wb.get_command_count()
         )
     };
     let mut runtime = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
     let (res, the_cnt) = runtime.block_on(f1);
-    println!("Command count {}", the_cnt);
     assert!(res.is_ok(), "Got a good response");
     assert!(
         res.unwrap() == CommandResponse::OkResp,

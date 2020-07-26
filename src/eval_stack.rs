@@ -86,7 +86,6 @@ fn test_create_stack() {
     use crate::parser::whole_expr_str;
     let ex = whole_expr_str("(20 * 2) + 1 + 1 ").unwrap();
     let res = create_eval_stack(&ex, &HashMap::new());
-    println!("Res is {:?}", res);
     assert!(res.is_ok());
     let computed = eval(&res.unwrap());
     assert_eq!(computed, Ok(Value::Int(42)))
