@@ -1,11 +1,8 @@
 use crate::eval_stack::EvalStack;
+use crate::definitions::Value;
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Value {
-    Int(i128),
-    Float(f64),
-    Str(String),
-}
+
+
 
 pub fn eval(instructions: &Vec<EvalStack>) -> Result<Value, String> {
     let mut stack: Vec<Value> = vec![];

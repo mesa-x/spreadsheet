@@ -12,6 +12,8 @@ pub mod definitions;
 
 pub mod workbook;
 
+pub mod compute;
+
 //use im::HashMap;
 
 // fn foo() -> HashMap<String, String> {

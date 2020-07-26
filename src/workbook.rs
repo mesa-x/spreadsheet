@@ -102,7 +102,7 @@ impl Workbook {
         }
     }
 
-    async fn get_sheets(&self) -> Vec<Box<dyn SheetIdentifier>> {
+    pub async fn get_sheets(&self) -> Vec<Box<dyn SheetIdentifier>> {
         vec![]
     }
 }

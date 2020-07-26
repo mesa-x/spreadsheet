@@ -17,6 +17,9 @@
 
 
 use tokio::stream::Stream;
+use std::time::Instant;
+use im::HashMap;
+use std::sync::Arc;
 
 /// A generic unique identifier
 pub type UniqueId = u64;
@@ -84,3 +87,38 @@ pub trait Cell {
 }
 
 pub trait Worksheet: SheetIdentifier {}
+
+#[derive(Debug, PartialEq , Clone)]
+pub enum Value {
+    Int(i128),
+    Float(f64),
+    Str(String),
+    Date(Instant),
+    Bool(bool),
+    JSON(JsonValue),
+    Error((String, u32)),
+    Maybe(Option<Box<Value>>),
+    TypedJSON((JsonValue, Arc<JsonType>)),
+    Other(Box<OtherValue>)
+}
+
+#[derive(Debug, PartialEq , Clone)]
+pub enum JsonType {
+
+}
+
+#[derive(Debug, PartialEq , Clone)]
+pub enum JsonValue {
+    Number(f64),
+    IntNumber(i128),
+    Str(String),
+    Bool(bool),
+    Null,
+    Array(Vec<JsonValue>),
+    Json(HashMap<String, JsonValue>)
+} 
+
+#[derive(Debug, PartialEq , Clone)]
+pub struct OtherValue {
+
+}
