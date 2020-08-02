@@ -3,4 +3,4 @@
 /.vscode
 Cargo.lock
 .*.swp
-
+.metals/*
