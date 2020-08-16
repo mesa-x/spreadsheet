@@ -1,210 +1,250 @@
 package mesax.parsing
 
-import org.specs2._
+// import org.specs2._
 import Parser._
-import net.liftweb.common.Full
+import net.liftweb.common.{Full, Empty}
 import fastparse._, NoWhitespace._
+import org.specs2.mutable._
 
 class QuickStartSpec extends Specification {
-  def is = s2"""
 
- This is my first specification
-   it is working                 $a1
-   really working!               $a2
-   Precedence                    $test_precedence
-                                 """
+  "The Parser" should {
+    "Have correct precedence" in {
+      precedence("&&") must be_<(precedence("+"))
+    }
+    "Parse a number" in {
+      Parser.parseInput("""147""") must_== Full(ex_i(147))
+    }
 
-  def test_precedence = precedence("&&") must be_<(precedence("+"))
+    "Parse a comment" in {
+      parse("""/* comment */""", Parser.parseComment(_)) must_== Parsed.Success(
+        "/* comment */",
+        13
+      )
+    }
 
-  println("Parsing: " + Parser.parseInput("""/* cats /*sub 
+    "parse a number with comments" in {
+      Parser.parseInput("""/* cats /*sub 
   
   
-  */ */+33.9/* foo */"""))
+  */ */+33.9/* foo */""") must_== Full(ParsedFloat(33.9, Empty))
+    }
 
-  println(
-    "Comment parsing: " + parse("""/* comment */""", Parser.parseComment(_))
-  )
+    "parse an expression that starts with '='" in {
+      Parser.parseInput("""=  147""") must_== Full(ex_i(147))
+    }
 
-  lazy val toTest = Vector(
-    ("""147""", Full(ex_i(147))),
-    ("""=  147""", Full(ex_i(147))),
-    (""""Hello World"""", Full(ex_str("Hello World"))),
-    ("""147 /* comment */""", Full(ex_i(147))),
-    (
-      """147 //# comment
-             """,
-      Full(ex_i(147))
-    ),
-    ("""147 //# comment   """, Full(ex_i(147))),
-    (""""Hello World"""", Full(ex_str("Hello World"))),
-    ("""true""", Full(ex_id("TRUE"))),
-    (
-      """if(32, "yes", "no")""",
+    "parse a string" in {
+      Parser.parseInput(""""Hello World"""") must_== Full(ex_str("Hello World"))
+    }
+
+    "Parse a number and comment" in {
+      Parser.parseInput("""147 /* comment */""") must_== Full(ex_i(147))
+    }
+    "Parse a number and a comment to end of line" in {
+
+      Parser.parseInput("""147 //# comment
+             """) must_==
+        Full(ex_i(147))
+    }
+
+    "Parse number and comment to end of line with no CR" in {
+      Parser.parseInput("""146 //# comment   """) must_== Full(ex_i(146))
+    }
+    "Parse a string with comment" in {
+      Parser.parseInput(""""Hello World" // I'm a line comment""") must_== Full(
+        ex_str("Hello World")
+      )
+    }
+
+    "Parse identifier" in {
+      Parser.parseInput("""true""") must_== Full(ex_id("TRUE"))
+    }
+
+    "Parse function (if)" in {
+      Parser.parseInput("""if(32, "yes", "no")""") must_==
+        Full(
+          ex_fun(
+            "IF",
+            Vector(),
+            Vector(ex_i(32), ex_str("yes"), ex_str("no"))
+          )
+        )
+    }
+
+    "Parse function (if) with identified as first param" in {
+      Parser.parseInput("""if(true, "yes", "no")""") must_==
+        Full(
+          ex_fun(
+            "IF",
+            Vector(),
+            Vector(ex_id("true"), ex_str("yes"), ex_str("no"))
+          )
+        )
+    }
+
+    "Parse function (if) with trailing whitespace" in {
+      Parser.parseInput("""=if(true, "yes", "no")    """) must_==
+        Full(
+          ex_fun(
+            "if",
+            Vector(),
+            Vector(ex_id("true"), ex_str("yes"), ex_str("no"))
+          )
+        )
+    }
+
+    "Parse a string with leading whitespace" in {
+      Parser.parseInput("""  "Hello World"""") must_== Full(
+        ex_str("Hello World")
+      )
+    }
+    "Parse a negative int" in {
+      Parser.parseInput("""-32""") must_== Full(ex_i(-32))
+    }
+
+    "Parse a positive int with leading '+'" in {
+      Parser.parseInput("""+32""") must_== Full(ex_i(32))
+    }
+    "Parse a floating point number" in {
+      Parser.parseInput("""32.99""") must_== Full(ex_f(32.99))
+    }
+    "Parse a negative floating point number" in {
+      Parser.parseInput("""-32.822""") must_== Full(ex_f(-32.822))
+    }
+  }
+  "Parse an address, but it should be an identifer" in {
+    Parser.parseInput("""A1""") must_== Full(ex_id("a1"))
+  }
+
+  "Parse an absolute address as an address" in {
+    Parser.parseInput("""$A3""") must_== Full(ex_adr("$A3"))
+  }
+  "Parse a range" in {
+    Parser.parseInput("""$A3:b77""") must_== Full(ex_rng("$a3", "b77"))
+  }
+  "Parse long address" in {
+    Parser.parseInput("""$ABE3328282""") must_==
+      Full(ex_adr("$ABE3328282"))
+  }
+  "Parse function that contains a range" in {
+    Parser.parseInput("""SuM(a1:$B7)""") must_==
+      Full(ex_fun("sum", Vector(), Vector(ex_rng("a1", "$b7"))))
+  }
+  "Parse a range inside a paren" in {
+    Parser.parseInput("""(a1:$B7)""") must_== Full(
+      ex_paren(ex_rng("a1", "$B7"))
+    )
+  }
+  "Parse number inside paren" in {
+    Parser.parseInput("""( 44 )""") must_== Full(ex_paren(ex_i(44)))
+  }
+  "Parse negative number inside paren" in {
+    Parser.parseInput("""( -73.4)""") must_== Full(ex_paren(ex_f(-73.4)))
+  }
+  "Parse function inside paren" in {
+    Parser.parseInput("""(sum(2,3,4))""") must_==
       Full(
-        ex_fun(
-          "IF",
-          Vector(),
-          Vector(ex_i(32), ex_str("yes"), ex_str("no"))
+        ex_paren(
+          ex_fun(
+            "sum",
+            Vector(),
+            Vector(ex_i(2), ex_i(3), ex_i(4))
+          )
         )
       )
-    ),
-    (
-      """if(true, "yes", "no")""",
+  }
+  "Parse multi-line function inside paren" in {
+    Parser.parseInput("""(sum(
+              2,
+
+              3,   4
+          ))""") must_==
       Full(
-        ex_fun(
-          "IF",
-          Vector(),
-          Vector(ex_id("true"), ex_str("yes"), ex_str("no"))
+        ex_paren(
+          ex_fun(
+            "sum",
+            Vector(),
+            Vector(ex_i(2), ex_i(3), ex_i(4))
+          )
         )
       )
-    ),
-    (
-      """=if(true, "yes", "no")    """,
+  }
+  "Parse multi-line function with underscore identifier inside paren" in {
+    Parser.parseInput("""(sum_dog(
+              2, // I'm a comment
+
+              /* I'm a multi-line comment
+
+              */
+
+              3,   4
+          ))""") must_==
+      Full(
+        ex_paren(
+          ex_fun(
+            "sum_DOG",
+            Vector(),
+            Vector(ex_i(2), ex_i(3), ex_i(4))
+          )
+        )
+      )
+  }
+  "Simple addition" in {
+    Parser.parseInput("""3 + 39""") must_==
+      Full(ex_inf("+", ex_i(3), ex_i(39)))
+  }
+  "Addition and division... do the precedence thing" in {
+    Parser.parseInput("""3 + 39 / 42.1""") must_==
+      Full(
+        ex_inf(
+          "+",
+          ex_i(3),
+          ex_inf("/", ex_i(39), ex_f(42.1))
+        )
+      )
+  }
+  "Addition and multiplication" in {
+    Parser.parseInput("""3 + 39 * 42.1""") must_==
+      Full(
+        ex_inf(
+          "+",
+          ex_i(3),
+          ex_inf("*", ex_i(39), ex_f(42.1))
+        )
+      )
+  }
+  "Multiplcation and addition" in {
+    Parser.parseInput("""3 * 39 + 42.1""") must_==
+      Full(ex_inf("+", ex_inf("*", ex_i(3), ex_i(39)), ex_f(42.1)))
+  }
+  "Parens and operators" in {
+    Parser.parseInput("""(3 + 39)/ 42.1""") must_==
+      Full(
+        ex_inf(
+          "/",
+          ex_paren(ex_inf("+", ex_i(3), ex_i(39))),
+          ex_f(42.1)
+        )
+      )
+  }
+  "Functions, ranges, and operators" in {
+    Parser.parseInput("""IF(a1, SUM(a1:$b$7), 3 + 39)""") must_==
       Full(
         ex_fun(
           "if",
           Vector(),
-          Vector(ex_id("true"), ex_str("yes"), ex_str("no"))
+          Vector(
+            ex_id("a1"),
+            ex_fun("sum", Vector(), Vector(ex_rng("a1", "$b$7"))),
+            ex_inf("+", ex_i(3), ex_i(39))
+          )
         )
       )
-    ),
-    ("""  "Hello World"""", Full(ex_str("Hello World"))),
-    ("""-32""", Full(ex_i(-32))),
-    ("""+32""", Full(ex_i(32))),
-    ("""32.99""", Full(ex_f(32.99))),
-    ("""-32.822""", Full(ex_f(-32.822))),
-    ("""A1""", Full(ex_id("a1"))),
-    ("""$A3""", Full(ex_adr("$A3"))),
-    ("""$A3:b77""", Full(ex_rng("$a3", "b77"))),
-    (
-      """$ABE3328282""",
-      Full(ex_adr("$ABE3328282"))
-    ),
-    (
-      """SuM(a1:$B7)""",
-      Full(ex_fun("sum", Vector(), Vector(ex_rng("a1", "$b7"))))
-    )
-  )
-
-  def e1 = 1 must_== 1
-  def e2 = 2 must_== 2
-  def a1 = Parser.parseInput("""147""") must_== Full(ex_i(147))
-  def a2 = Parser.parseInput("""=  147""") must_== Full(ex_i(147))
+  }
 }
-
 // class ParseTest {
 
-// #[test)
-// fn test_parsing() {
-//     let test_exprs: Vec<(&str, Result<Expression, i32>)> = Vector(
-//         ("""147""", Full(ex_i(147))),
-//         ("""=  147""", Full(ex_i(147))),
-//         (""""Hello World"""", Full(ex_str("Hello World"))),
-//         ("""147 /* comment */""", Full(ex_i(147))),
-//         (
-//             """147 //# comment
-//              """,
-//             Full(ex_i(147)),
-//         ),
-//         ("""147 //# comment   """, Full(ex_i(147))),
-//         (""""Hello World"""", Full(ex_str("Hello World"))),
-//         ("""true""", Full(ex_id("TRUE"))),
-//         (
-//             """if(32, "yes", "no")""",
-//             Full(ex_fun(
-//                 "IF",
-//                 Vector(),
-//                 Vector(ex_i(32), ex_str("yes"), ex_str("no")),
-//             )),
-//         ),
-//         (
-//             """if(true, "yes", "no")""",
-//             Full(ex_fun(
-//                 "IF",
-//                 Vector(),
-//                 Vector(ex_id("true"), ex_str("yes"), ex_str("no")),
-//             )),
-//         ),
-//         (
-//             """=if(true, "yes", "no")    """,
-//             Full(ex_fun(
-//                 "if",
-//                 Vector(),
-//                 Vector(ex_id("true"), ex_str("yes"), ex_str("no")),
-//             )),
-//         ),
-//         ("""  "Hello World"""", Full(ex_str("Hello World"))),
-//         ("""-32""", Full(ex_i(-32))),
-//         ("""+32""", Full(ex_i(32))),
-//         ("""32.99""", Full(ex_f(32.99))),
-//         ("""-32.822""", Full(ex_f(-32.822))),
-//         ("""A1""", Full(ex_id("a1"))),
-//         ("""$A3""", Full(ex_adr("$A3"))),
-//         ("""$A3:b77""", Full(ex_rng("$a3", "b77"))),
-//         (
-//             """$ABE3328282""",
-//             Full(ex_adr("$ABE3328282"),
-//             ),
-//         ),
-//         (
-//             """SuM(a1:$B7)""",
-//             Full(ex_fun("sum", Vector(), Vector(ex_rng("a1", "$b7")))),
-//         ),
-//         ("""(a1:$B7)""", Full(ex_paren(ex_rng("a1", "$B7")))),
-//         ("""( 44 )""", Full(ex_paren(ex_i(44)))),
-//         ("""( -73.4)""", Full(ex_paren(ex_f(-73.4)))),
-//         (
-//             """(sum(2,3,4))""",
-//             Full(ex_paren(ex_fun(
-//                 "sum",
-//                 Vector(),
-//                 Vector(ex_i(2), ex_i(3), ex_i(4)),
-//             ))),
-//         ),
-//         (
-//             """(sum(
-//                     2,
-
-//                     3,   4
-//                 ))""",
-//             Full(ex_paren(ex_fun(
-//                 "sum",
-//                 Vector(),
-//                 Vector(ex_i(2), ex_i(3), ex_i(4)),
-//             ))),
-//         ),
-//         (
-//             """(sum_dog(
-//                     2,
-
-//                     3,   4
-//                 ))""",
-//             Full(ex_paren(ex_fun(
-//                 "sum_DOG",
-//                 Vector(),
-//                 Vector(ex_i(2), ex_i(3), ex_i(4)),
-//             ))),
-//         ),
-//         (
-//             """3 + 39""",
-//             Full(ex_inf("+", ex_i(3), ex_i(39))),
-//         ),
-//         (
-//             """3 + 39 / 42.1""",
-//             Full(ex_inf(
-//                 "+",
-//                 ex_i(3),
-//                 ex_inf("/", ex_i(39), ex_f(42.1)),
-//             )),
-//         ),
-//         (
-//             """3 + 39 * 42.1""",
-//             Full(ex_inf(
-//                 "+",
-//                 ex_i(3),
-//                 ex_inf("*", ex_i(39), ex_f(42.1)),
-//             )),
-//         ),
 //         (
 //             """SELECT[DISTINCT)(
 
@@ -243,30 +283,6 @@ class QuickStartSpec extends Specification {
 //                 "foobar",
 //                 ex_inf("+", ex_adr("a1"), ex_i(3)),
 //                 ex_inf("*", ex_id("foobar"), ex_i(5)),
-//             )),
-//         ),
-//         (
-//             """3 * 39 + 42.1""",
-//             Full(ex_inf("+", ex_inf("*", ex_i(3), ex_i(39)), ex_f(42.1))),
-//         ),
-//         (
-//             """(3 + 39)/ 42.1""",
-//             Full(ex_inf(
-//                 "/",
-//                 ex_paren(ex_inf("+", ex_i(3), ex_i(39))),
-//                 ex_f(42.1),
-//             )),
-//         ),
-//         (
-//             """IF(a1, SUM(a1:$b$7), 3 + 39)""",
-//             Full(ex_fun(
-//                 "if",
-//                 Vector(),
-//                 Vector(
-//                     ex_id("a1"),
-//                     ex_fun("sum", Vector(), Vector(ex_rng("a1", "$b$7"))),
-//                     ex_inf("+", ex_i(3), ex_i(39)),
-//                 ),
 //             )),
 //         ),
 //         ("""foo.bar.bar""", Full(ex_dot(Vector("foo", "BAR", "BaR")))),
