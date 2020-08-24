@@ -112,66 +112,65 @@ class QuickStartSpec extends Specification {
     "Parse a negative floating point number" in {
       Parser.parseInput("""-32.822""") must_== Full(ex_f(-32.822))
     }
-  }
-  "Parse an address, but it should be an identifer" in {
-    Parser.parseInput("""A1""") must_== Full(ex_id("a1"))
-  }
+    "Parse an address, but it should be an identifer" in {
+      Parser.parseInput("""A1""") must_== Full(ex_id("a1"))
+    }
 
-  "Parse an absolute address as an address" in {
-    Parser.parseInput("""$A3""") must_== Full(ex_adr("$A3"))
-  }
-  "Parse a range" in {
-    Parser.parseInput("""$A3:b77""") must_== Full(ex_rng("$a3", "b77"))
-  }
-  "Parse long address" in {
-    Parser.parseInput("""$ABE3328282""") must_==
-      Full(ex_adr("$ABE3328282"))
-  }
-  "Parse function that contains a range" in {
-    Parser.parseInput("""SuM(a1:$B7)""") must_==
-      Full(ex_fun("sum", Vector(), Vector(ex_rng("a1", "$b7"))))
-  }
-  "Parse a range inside a paren" in {
-    Parser.parseInput("""(a1:$B7)""") must_== Full(
-      ex_paren(ex_rng("a1", "$B7"))
-    )
-  }
-  "Parse number inside paren" in {
-    Parser.parseInput("""( 44 )""") must_== Full(ex_paren(ex_i(44)))
-  }
-  "Parse negative number inside paren" in {
-    Parser.parseInput("""( -73.4)""") must_== Full(ex_paren(ex_f(-73.4)))
-  }
-  "Parse function inside paren" in {
-    Parser.parseInput("""(sum(2,3,4))""") must_==
-      Full(
-        ex_paren(
-          ex_fun(
-            "sum",
-            Vector(),
-            Vector(ex_i(2), ex_i(3), ex_i(4))
+    "Parse an absolute address as an address" in {
+      Parser.parseInput("""$A3""") must_== Full(ex_adr("$A3"))
+    }
+    "Parse a range" in {
+      Parser.parseInput("""$A3:b77""") must_== Full(ex_rng("$a3", "b77"))
+    }
+    "Parse long address" in {
+      Parser.parseInput("""$ABE3328282""") must_==
+        Full(ex_adr("$ABE3328282"))
+    }
+    "Parse function that contains a range" in {
+      Parser.parseInput("""SuM(a1:$B7)""") must_==
+        Full(ex_fun("sum", Vector(), Vector(ex_rng("a1", "$b7"))))
+    }
+    "Parse a range inside a paren" in {
+      Parser.parseInput("""(a1:$B7)""") must_== Full(
+        ex_paren(ex_rng("a1", "$B7"))
+      )
+    }
+    "Parse number inside paren" in {
+      Parser.parseInput("""( 44 )""") must_== Full(ex_paren(ex_i(44)))
+    }
+    "Parse negative number inside paren" in {
+      Parser.parseInput("""( -73.4)""") must_== Full(ex_paren(ex_f(-73.4)))
+    }
+    "Parse function inside paren" in {
+      Parser.parseInput("""(sum(2,3,4))""") must_==
+        Full(
+          ex_paren(
+            ex_fun(
+              "sum",
+              Vector(),
+              Vector(ex_i(2), ex_i(3), ex_i(4))
+            )
           )
         )
-      )
-  }
-  "Parse multi-line function inside paren" in {
-    Parser.parseInput("""(sum(
+    }
+    "Parse multi-line function inside paren" in {
+      Parser.parseInput("""(sum(
               2,
 
               3,   4
           ))""") must_==
-      Full(
-        ex_paren(
-          ex_fun(
-            "sum",
-            Vector(),
-            Vector(ex_i(2), ex_i(3), ex_i(4))
+        Full(
+          ex_paren(
+            ex_fun(
+              "sum",
+              Vector(),
+              Vector(ex_i(2), ex_i(3), ex_i(4))
+            )
           )
         )
-      )
-  }
-  "Parse multi-line function with underscore identifier inside paren" in {
-    Parser.parseInput("""(sum_dog(
+    }
+    "Parse multi-line function with underscore identifier inside paren" in {
+      Parser.parseInput("""(sum_dog(
               2, // I'm a comment
 
               /* I'm a multi-line comment
@@ -180,67 +179,168 @@ class QuickStartSpec extends Specification {
 
               3,   4
           ))""") must_==
-      Full(
-        ex_paren(
+        Full(
+          ex_paren(
+            ex_fun(
+              "sum_DOG",
+              Vector(),
+              Vector(ex_i(2), ex_i(3), ex_i(4))
+            )
+          )
+        )
+    }
+    "Simple addition" in {
+      Parser.parseInput("""3 + 39""") must_==
+        Full(ex_inf("+", ex_i(3), ex_i(39)))
+    }
+    "Addition and division... do the precedence thing" in {
+      Parser.parseInput("""3 + 39 / 42.1""") must_==
+        Full(
+          ex_inf(
+            "+",
+            ex_i(3),
+            ex_inf("/", ex_i(39), ex_f(42.1))
+          )
+        )
+    }
+    "Addition and multiplication" in {
+      Parser.parseInput("""3 + 39 * 42.1""") must_==
+        Full(
+          ex_inf(
+            "+",
+            ex_i(3),
+            ex_inf("*", ex_i(39), ex_f(42.1))
+          )
+        )
+    }
+    "Multiplcation and addition" in {
+      Parser.parseInput("""3 * 39 + 42.1""") must_==
+        Full(ex_inf("+", ex_inf("*", ex_i(3), ex_i(39)), ex_f(42.1)))
+    }
+    "Parens and operators" in {
+      Parser.parseInput("""(3 + 39)/ 42.1""") must_==
+        Full(
+          ex_inf(
+            "/",
+            ex_paren(ex_inf("+", ex_i(3), ex_i(39))),
+            ex_f(42.1)
+          )
+        )
+    }
+    "Functions, ranges, and operators" in {
+      Parser.parseInput("""IF(a1, SUM(a1:$b$7), 3 + 39)""") must_==
+        Full(
           ex_fun(
-            "sum_DOG",
+            "if",
             Vector(),
-            Vector(ex_i(2), ex_i(3), ex_i(4))
+            Vector(
+              ex_id("a1"),
+              ex_fun("sum", Vector(), Vector(ex_rng("a1", "$b$7"))),
+              ex_inf("+", ex_i(3), ex_i(39))
+            )
           )
         )
-      )
-  }
-  "Simple addition" in {
-    Parser.parseInput("""3 + 39""") must_==
-      Full(ex_inf("+", ex_i(3), ex_i(39)))
-  }
-  "Addition and division... do the precedence thing" in {
-    Parser.parseInput("""3 + 39 / 42.1""") must_==
-      Full(
-        ex_inf(
-          "+",
-          ex_i(3),
-          ex_inf("/", ex_i(39), ex_f(42.1))
+    }
+
+    "Parse a simple Improv-like formula" in {
+      Parser.parseInput("Total = groupsum(Outgoing)") must_== Full(
+        ComplexAssignment(
+          ComplexIdentifer(
+            DottedIdentifier(Vector("TOTAL"), Empty),
+            Empty,
+            Empty
+          ),
+          ParsedFunction(
+            "GROUPSUM",
+            Vector(),
+            List(ParsedId("OUTGOING", Empty)),
+            Empty
+          ),
+          Empty
         )
       )
-  }
-  "Addition and multiplication" in {
-    Parser.parseInput("""3 + 39 * 42.1""") must_==
-      Full(
-        ex_inf(
-          "+",
-          ex_i(3),
-          ex_inf("*", ex_i(39), ex_f(42.1))
+    }
+    "Parse a simple Improv-like formula #2" in {
+      Parser.parseInput("Balance = Income - Total") must_== Full(
+        ComplexAssignment(
+          ComplexIdentifer(
+            DottedIdentifier(Vector("BALANCE"), Empty),
+            Empty,
+            Empty
+          ),
+          Infix(
+            "-",
+            ParsedId("INCOME", Empty),
+            ParsedId("TOTAL", Empty),
+            Empty
+          ),
+          Empty
         )
       )
-  }
-  "Multiplcation and addition" in {
-    Parser.parseInput("""3 * 39 + 42.1""") must_==
-      Full(ex_inf("+", ex_inf("*", ex_i(3), ex_i(39)), ex_f(42.1)))
-  }
-  "Parens and operators" in {
-    Parser.parseInput("""(3 + 39)/ 42.1""") must_==
-      Full(
-        ex_inf(
-          "/",
-          ex_paren(ex_inf("+", ex_i(3), ex_i(39))),
-          ex_f(42.1)
+    }
+    /* FIXME support complex identifier on right side of expression
+    "Parse an Improv-like formula #3" in {
+      Parser.parseInput(
+        "running balance:month[THIS] = Running Balance:Month[Prev] + Balance:Month[this]"
+      ) must_== Empty
+    }
+    "Parse an Improv-like formula #4" in {
+      Parser.parseInput("Jan:Running Balance = Jan:Balance - 440") must_== Empty
+    }*/
+    "Parse a Improv-like formula #5" in {
+      Parser.parseInput("sales.total = groupsum(sales)") must_== Full(
+        ComplexAssignment(
+          ComplexIdentifer(
+            DottedIdentifier(List("SALES", "TOTAL"), Empty),
+            Empty,
+            Empty
+          ),
+          ParsedFunction(
+            "GROUPSUM",
+            Vector(),
+            List(ParsedId("SALES", Empty)),
+            Empty
+          ),
+          Empty
         )
       )
-  }
-  "Functions, ranges, and operators" in {
-    Parser.parseInput("""IF(a1, SUM(a1:$b$7), 3 + 39)""") must_==
-      Full(
-        ex_fun(
-          "if",
-          Vector(),
-          Vector(
-            ex_id("a1"),
-            ex_fun("sum", Vector(), Vector(ex_rng("a1", "$b$7"))),
-            ex_inf("+", ex_i(3), ex_i(39))
-          )
+    }
+    "Parse a Improv-like formula #6" in {
+      Parser.parseInput("profit = sales.total - total Costs") must_== Full(
+        ComplexAssignment(
+          ComplexIdentifer(
+            DottedIdentifier(Vector("PROFIT"), Empty),
+            Empty,
+            Empty
+          ),
+          Infix(
+            "-",
+            DottedIdentifier(List("SALES", "TOTAL"), Empty),
+            ParsedId("TOTAL COSTS", Empty),
+            Empty
+          ),
+          Empty
         )
       )
+    }
+    "Parse a Improv-like formula #7" in {
+      Parser.parseInput("variance = actual - Budget") must_== Full(
+        ComplexAssignment(
+          ComplexIdentifer(
+            DottedIdentifier(Vector("VARIANCE"), Empty),
+            Empty,
+            Empty
+          ),
+          Infix(
+            "-",
+            ParsedId("ACTUAL", Empty),
+            ParsedId("BUDGET", Empty),
+            Empty
+          ),
+          Empty
+        )
+      )
+    }
   }
 }
 // class ParseTest {

@@ -26,7 +26,10 @@ final case class ParsedString(str: String, parseInfo: Parser.ParseInfo)
     extends Expression {}
 
 final case class ParsedId(id: String, parseInfo: Parser.ParseInfo)
-    extends Expression {}
+    extends Expression {
+  def toDottedIdentifer(): DottedIdentifier =
+    DottedIdentifier(Vector(id), parseInfo)
+}
 
 final case class ParsedAddress(addr: String, parseInfo: Parser.ParseInfo)
     extends Expression {}
@@ -61,6 +64,16 @@ final case class Left(
     thing: String,
     expr1: Expression,
     expr2: Expression,
+    parseInfo: Parser.ParseInfo
+) extends Expression {}
+final case class ComplexAssignment(
+    left: ComplexIdentifer,
+    right: Expression,
+    parseInfo: Parser.ParseInfo
+) extends Expression {}
+final case class ComplexIdentifer(
+    base: DottedIdentifier,
+    modifer: Box[String],
     parseInfo: Parser.ParseInfo
 ) extends Expression {}
 
@@ -110,24 +123,39 @@ object Parser {
 
   def firstIdentifier[_: P] = CharIn("a-zA-Z")
 
-  def addlIdentifier[_: P] = CharIn("a-zA-Z0-9_")
+  def addlIdentifier[_: P] = CharIn("a-zA-Z0-9 _")
 
-  def parseAll[_: P]: P[Expression] =
-    (Start ~ firstEquals.? ~ parseExpr ~ parseWhitespace.? ~ End)
+  /**
+    * Parse a complex assignment without the "let" at the beginning
+    *
+    * @return the parsed result
+    */
+  def parseNonLetAssignment[_: P]: P[Expression] =
+    (parseComplexIdentifier ~ parseWhitespace ~ "=" ~ parseWhitespace ~ parseExpr)
+      .map(v => ComplexAssignment(v._1, v._4, Empty))
+
+  /**
+    * Parse a tradition spreadsheet formula with some Mesa X extension (multi-line, etc.)
+    *
+    * @return The result of parsing the expression
+    */
+  def parseTraditional[_: P]: P[Expression] =
+    (firstEquals.? ~ parseExpr ~ parseWhitespace.?)
       .map(v => v._2)
-
+  def parseAll[_: P]: P[Expression] =
+    (Start ~ (parseNonLetAssignment | parseTraditional) ~ End)
   def parseExpr[_: P]: P[Expression] =
-    (parseOpr | parseParen | parseFunction | parseRange |
+    (parseOpr | parseParen | parseFunction | parseRange | parseDottedIdentifier | 
       parseIdentifier | parseAddress | parseNumber | parseString)
 
   def parseMiniExpr[_: P]: P[Expression] =
-    (parseParen | parseFunction | parseRange |
+    (parseParen | parseFunction | parseRange | parseDottedIdentifier | 
       parseIdentifier | parseAddress | parseNumber | parseString)
 
   def parseOpr[_: P]: P[Infix] =
     P(parseMiniExpr ~ findOpr ~ parseExpr).map({
       case (left, opr, right @ Infix(io, il, ir, rp))
-      // deal with re-writing if the precidence of the operators calls for it
+          // deal with re-writing if the precidence of the operators calls for it
           if precedence(io) < precedence(opr) =>
         Infix(
           io,
@@ -139,7 +167,7 @@ object Parser {
         Infix(opr, left, right, Empty)
     })
 
-  def findOpr[_: P]: P[String] = P("+".! | "*".! | "/".!)
+  def findOpr[_: P]: P[String] = P("+".! | "*".! | "/".! | "-".!)
 //       fn expr_mini(input: Span) -> IResult<Span, Expression> {
 //     alt((
 //         &parser_let,
@@ -214,11 +242,28 @@ object Parser {
       )
     )
 
+  def parseComplexIdentifier[_: P]: P[ComplexIdentifer] =
+    (parseWhitespace ~ (parseDottedIdentifier | parseIdentifier.map(v =>
+      v.toDottedIdentifer()
+    )) ~ parseWhitespace ~ (":" ~ parseWhitespace ~ parseIdentifier ~ (parseWhitespace ~ "[" ~ parseIdentifier ~ "]" ~ parseWhitespace).?).?).map(v => ComplexIdentifer(v._2, Empty, Empty))
+  def parseDottedIdentifier[_: P]: P[DottedIdentifier] =
+    (parseWhitespace ~ parseIdentifier ~ (parseWhitespace ~ "." ~ parseWhitespace ~ parseIdentifier)
+      .rep(1)).map(v => {
+      val head: String = v._2.id
+      val rest: Seq[String] = v._3.map(q => q._3.id)
+      DottedIdentifier(head :: rest.toList, Empty)
+    })
+
+  /**
+    * Parse a simple identifier
+    *
+    * @return the parsed expression
+    */
   def parseIdentifier[_: P]: P[ParsedId] =
     P(
       parseWhitespace.? ~ (("_" ~ firstIdentifier ~ addlIdentifier.rep(0)) |
         (firstIdentifier ~ addlIdentifier.rep(0))).! ~ parseWhitespace.?
-    ).map(v => ParsedId(v._2.toUpperCase(), Empty))
+    ).map(v => ParsedId(v._2.toUpperCase().trim(), Empty))
   def parseNumber[_: P]: P[Expression] =
     P(parseWhitespace.? ~ (parseFloat | parseInt) ~ parseWhitespace.?).map(v =>
       v._2
