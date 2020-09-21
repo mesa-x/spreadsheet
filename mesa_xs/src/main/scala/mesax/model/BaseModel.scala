@@ -3,13 +3,8 @@ package mesax.model
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable.HashMap
+import mesax.base.BaseTypes._
 
-/**
-  * Types, etc.
-  */
-object ModelBase {
-  type UUID = Int
-}
 
 /**
   * The trait that houses a model
@@ -21,31 +16,31 @@ trait ModelDef {
     *
     * @return a UUID
     */
-  def genUUID(): ModelBase.UUID
+  def genUUID(): UUID
 
   /**
     * Get a list of all the categories for the model
     *
     * @return an iterator that contains all the category names and UUID of each
     */
-  def categories: Iterable[(String, ModelBase.UUID)]
+  def categories: Iterable[(String, UUID)]
 }
 
 class Model extends ModelDef {
   private val counter: AtomicInteger = new AtomicInteger()
 
-  private val _categories: AtomicReference[HashMap[String, ModelBase.UUID]] = {
+  private val _categories: AtomicReference[HashMap[String, UUID]] = {
 
-    val ret: AtomicReference[HashMap[String, ModelBase.UUID]] =
+    val ret: AtomicReference[HashMap[String, UUID]] =
       new AtomicReference()
     ret.set(HashMap("Cat1" -> genUUID(), "Cat2" -> genUUID()))
     ret
   }
   def Model() {}
-  def genUUID(): ModelBase.UUID = {
+  def genUUID(): UUID = {
     val ret = counter.incrementAndGet()
     ret
   }
 
-  def categories: Iterable[(String, ModelBase.UUID)] = _categories.get()
+  def categories: Iterable[(String, UUID)] = _categories.get()
 }

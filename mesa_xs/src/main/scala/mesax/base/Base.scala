@@ -5,3 +5,10 @@ object Util {
         """Hello, World!"""
     }
 }
+
+/**
+  * Types, etc.
+  */
+object BaseTypes {
+  type UUID = Int
+}

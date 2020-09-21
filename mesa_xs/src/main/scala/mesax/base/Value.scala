@@ -1,5 +1,7 @@
 package mesax.base
 
+import BaseTypes._
+
 /**
   * Define a Value for Mesa X
   */
@@ -10,7 +12,10 @@ sealed trait Value {
       * @return the Type of the Value
       */
   def theType: Type 
+
 }
+
+class Row {}
 
 final case class IntValue(v: Int) extends Value {
     def theType = IntType
@@ -30,7 +35,19 @@ final case class OptionalValue(v: Value) extends Value {
 final case class TupleValue(v: Seq[Value]) extends Value {
     def theType = TupleType(v.toVector.map(_.theType))
 }
+/**
+  * Each Cell is associated with multiple categories via a label.
+  * This is the CategoryLabel
+  *
+  */
+final case class CategoryLabel(v: UUID) extends Value {
+    private var labelName: String = null
+    private var labelPointers: Row = null
 
+    def theType = StringType
+
+
+}
 // final case class ArrayType(contained: Type) extends Type {}
 // final case class MapType(contained: Map[String, Type]) extends Type {}
 // final case object ErrorType extends Type {}
