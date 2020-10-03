@@ -1,0 +1,9 @@
+name = "MesaX"
+uuid = "0700dcca-8db9-48a3-bb18-445d99bd4a7f"
+authors = ["David Pollak <feeder.of.the.bears@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
