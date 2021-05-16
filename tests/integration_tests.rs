@@ -48,11 +48,7 @@ fn test_parsing() {
         (r#"A1"#, Ok(ex_id("a1"))),
         (r#"$A3"#, Ok(ex_adr("$A3"))),
         (r#"$A3:b77"#, Ok(ex_rng("$a3", "b77"))),
-        (
-            r#"$ABE3328282"#,
-            Ok(ex_adr("$ABE3328282"),
-            ),
-        ),
+        (r#"$ABE3328282"#, Ok(ex_adr("$ABE3328282"))),
         (
             r#"SuM(a1:$B7)"#,
             Ok(ex_fun("sum", vec![], vec![ex_rng("a1", "$b7")])),
@@ -92,25 +88,14 @@ fn test_parsing() {
                 vec![ex_i(2), ex_i(3), ex_i(4)],
             ))),
         ),
-        (
-            r#"3 + 39"#,
-            Ok(ex_inf("+", ex_i(3), ex_i(39))),
-        ),
+        (r#"3 + 39"#, Ok(ex_inf("+", ex_i(3), ex_i(39)))),
         (
             r#"3 + 39 / 42.1"#,
-            Ok(ex_inf(
-                "+",
-                ex_i(3),
-                ex_inf("/", ex_i(39), ex_f(42.1)),
-            )),
+            Ok(ex_inf("+", ex_i(3), ex_inf("/", ex_i(39), ex_f(42.1)))),
         ),
         (
             r#"3 + 39 * 42.1"#,
-            Ok(ex_inf(
-                "+",
-                ex_i(3),
-                ex_inf("*", ex_i(39), ex_f(42.1)),
-            )),
+            Ok(ex_inf("+", ex_i(3), ex_inf("*", ex_i(39), ex_f(42.1)))),
         ),
         (
             r#"SELECT[DISTINCT](
@@ -129,9 +114,9 @@ fn test_parsing() {
                         "items",
                         vec![],
                         vec![
-                            ex_dot(vec!["cats","foo"]),
-                            ex_dot(vec!["dogs","bar"]),
-                            ex_inf("*", ex_dot(vec!["cats","baz"]), ex_i(3)),
+                            ex_dot(vec!["cats", "foo"]),
+                            ex_dot(vec!["dogs", "bar"]),
+                            ex_inf("*", ex_dot(vec!["cats", "baz"]), ex_i(3)),
                         ],
                     ),
                     ex_fun("from", vec![], vec![ex_id("cats"), ex_id("dogs")]),
@@ -188,7 +173,7 @@ fn test_parsing() {
             cat. /* comment */ food == 
             
             
-            "Woof" "#, 
+            "Woof" "#,
             Ok(ex_inf(
                 "&&",
                 ex_id("false"),
@@ -217,14 +202,12 @@ fn test_parsing() {
             }
             (Ok(x), Ok(y)) => assert!(
                 false,
-                format!(
-                    "For '{}'. Did not successfully compare:\n{:?}\nand\n{:?}\n",
-                    item.0, x, y
-                )
+                "For '{}'. Did not successfully compare:\n{:?}\nand\n{:?}\n",
+                item.0, x, y
             ),
-            (Ok(x), Err(_)) => assert!(false, format!("Expecting error, but got {:?}\n", x)),
+            (Ok(x), Err(_)) => assert!(false, "Expecting error, but got {:?}\n", x),
             (Err(_), Err(_)) => assert!(true),
-            (Err(x), _) => assert!(false, format!("Trying '{}', got Error {:#?}\n", item.0, x)),
+            (Err(x), _) => assert!(false, "Trying '{}', got Error {:#?}\n", item.0, x),
         }
     }
 }

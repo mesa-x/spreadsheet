@@ -15,11 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-use tokio::stream::Stream;
-use std::time::Instant;
 use im::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
+use tokio_stream::Stream;
 
 /// A generic unique identifier
 pub type UniqueId = u64;
@@ -65,7 +64,7 @@ pub trait SheetIdentifier {
     fn get_id(&self) -> SheetUniqueIdentifier;
 }
 
-/// 
+///
 pub trait ChangeEvent {
     fn get_sheet_id(&self) -> SheetUniqueIdentifier;
     fn get_range(&self) -> SheetRange;
@@ -88,7 +87,7 @@ pub trait Cell {
 
 pub trait Worksheet: SheetIdentifier {}
 
-#[derive(Debug, PartialEq , Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Int(i128),
     Float(f64),
@@ -99,15 +98,13 @@ pub enum Value {
     Error((String, u32)),
     Maybe(Option<Box<Value>>),
     TypedJSON((JsonValue, Arc<JsonType>)),
-    Other(Box<OtherValue>)
+    Other(Box<OtherValue>),
 }
 
-#[derive(Debug, PartialEq , Clone)]
-pub enum JsonType {
+#[derive(Debug, PartialEq, Clone)]
+pub enum JsonType {}
 
-}
-
-#[derive(Debug, PartialEq , Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum JsonValue {
     Number(f64),
     IntNumber(i128),
@@ -115,10 +112,7 @@ pub enum JsonValue {
     Bool(bool),
     Null,
     Array(Vec<JsonValue>),
-    Json(HashMap<String, JsonValue>)
-} 
-
-#[derive(Debug, PartialEq , Clone)]
-pub struct OtherValue {
-
+    Json(HashMap<String, JsonValue>),
 }
+#[derive(Debug, PartialEq, Clone)]
+pub struct OtherValue {}

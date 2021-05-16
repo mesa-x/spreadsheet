@@ -21,7 +21,6 @@ use std::sync::{Arc, Mutex};
 use std::thread::spawn;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorksheetCommand {
     Noop,
@@ -92,7 +91,7 @@ impl Workbook {
             command: cmd,
             reply_channel: Some(rc),
         };
-        let mut send_chan = self.sender_chan.clone();
+        let send_chan = self.sender_chan.clone();
         send_chan.send(wrapper).await?;
         match info.recv().await {
             Some(x) => Ok(x),
@@ -119,7 +118,7 @@ fn listen_for_commands(workbook: &ArcWorkbook) {
                         // FIXME dispatch message
                         book.command_cnt.inc();
                         match msg.reply_channel {
-                            Some(mut rc) => {
+                            Some(rc) => {
                                 let _ = rc.send(CommandResponse::OkResp).await;
                                 ()
                             }
@@ -131,7 +130,7 @@ fn listen_for_commands(workbook: &ArcWorkbook) {
             };
         };
 
-        let mut runtime = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+        let runtime = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
         runtime.block_on(f1);
     });
 }

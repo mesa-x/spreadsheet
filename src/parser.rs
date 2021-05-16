@@ -5,7 +5,7 @@ use nom::{
     combinator::opt,
     error::ErrorKind,
     error::ParseError,
-    multi::{many0, many1, separated_list},
+    multi::{many0, many1, separated_list0},
     sequence::{delimited, tuple}, // sequence::tuple
     AsChar,
     Err,
@@ -132,7 +132,7 @@ fn not_str_tag(to_match: &str) -> impl Fn(Span) -> IResult<Span, String> {
         let s2: &str = &the_str;
         match str_tag(s2)(s) {
             Err(_) => take(1u32)(s).map(|(x, res)| (x, res.to_string())),
-            Ok(_) => Err(Err::Error((s, ErrorKind::Tag))),
+            Ok(_) => Err(Err::Error(nom::error::Error::new(s, ErrorKind::Tag))),
         }
     }
 }
@@ -268,7 +268,9 @@ fn parser_int(input: Span) -> IResult<Span, Expression> {
                     rest,
                     Expression::Int(i2 * sign_mult, parse_info(&input, &rest)),
                 )),
-                Result::Err(_) => Result::Err(Err::Error((input, ErrorKind::Digit))),
+                Result::Err(_) => {
+                    Result::Err(Err::Error(nom::error::Error::new(input, ErrorKind::Digit)))
+                }
             }
         }
         Err(x) => Err(x),
@@ -291,7 +293,9 @@ fn parser_float(input: Span) -> IResult<Span, Expression> {
 
         match all.parse::<f64>() {
             Ok(i2) => Ok((rest, Expression::Float(i2, parse_info(&input, &rest)))),
-            Result::Err(_) => Result::Err(Err::Error((input, ErrorKind::Digit))),
+            Result::Err(_) => {
+                Result::Err(Err::Error(nom::error::Error::new(input, ErrorKind::Digit)))
+            }
         }
     })
 }
@@ -378,7 +382,7 @@ fn parser_string(input: Span) -> IResult<Span, Expression> {
 }
 
 fn parser_comma_list(input: Span) -> IResult<Span, Vec<Expression>> {
-    separated_list(tag(","), &expr)(input)
+    separated_list0(tag(","), &expr)(input)
 }
 
 fn parser_dotted_identifier(input: Span) -> IResult<Span, Expression> {
@@ -633,14 +637,17 @@ fn test_expr() {
     );
 }
 
-pub fn whole_expr_str<'a>(input: &'a str) -> Result<Expression, nom::Err<(Span<'a>, ErrorKind)>> {
+pub fn whole_expr_str<'a>(input: &'a str) -> Result<Expression, nom::Err<nom::error::Error<Span>>> {
     whole_expr(Span::new(input))
 }
 
-pub fn whole_expr(input: Span) -> Result<Expression, nom::Err<(Span, ErrorKind)>> {
+pub fn whole_expr(input: Span) -> Result<Expression, nom::Err<nom::error::Error<Span>>> {
     match tuple((opt(tag("=")), &expr))(input) {
         Ok((zz, (_, e))) if zz.fragment() == &"" => Ok(e),
-        Ok((rest, _)) => Result::Err(nom::Err::Error((rest, ErrorKind::Complete))),
+        Ok((rest, _)) => Result::Err(nom::Err::Error(nom::error::Error::new(
+            rest,
+            ErrorKind::Complete,
+        ))),
         Result::Err(x) => Result::Err(x), // Err(Err(_, error)) => Err(error)
     }
 }

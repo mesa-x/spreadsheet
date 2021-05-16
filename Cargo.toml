@@ -1,11 +1,11 @@
 [package]
-name = "mesax"
-version = "0.1.0"
 authors = ["David Pollak <feeder.of.the.bears@gmail.com>"]
 edition = "2018"
 homepage = "https://mesa-x.org/"
-repository = "https://github.com/mesa-x/spreadsheet"
 license = "Apache-2.0"
+name = "mesax"
+repository = "https://github.com/mesa-x/spreadsheet"
+version = "0.1.0"
 
 # [[bin]]
 # name = "helloworld-client"
@@ -16,18 +16,19 @@ license = "Apache-2.0"
 # path = "src/helloworld/server.rs"
 
 [dependencies]
-nom = "~5"
-nom_locate = "~2"
-serde = "~1"
-async-stream = "~0.2"
-rand = "~0.7"
+async-stream = "~0.3"
 async-timer = "~0.7"
-im = { version = "~15", features = ["proptest", "serde"] }
-lazy_static = "~1.4"
-tonic = { version="~0.3", features = ["tls"] }
-tokio = { version = "~0.2", features = ["rt-threaded", "time", "stream", "fs", "macros", "uds"] }
-prost = "~0.6"
 atomic-counter = "~1"
+im = {version = "~15", features = ["proptest", "serde"]}
+lazy_static = "~1.4"
+nom = "~6"
+nom_locate = "~3"
+prost = "~0.7"
+rand = "~0.8"
+serde = "~1"
+tokio = {version = "~1.6", features = ["full"]}
+tokio-stream = "~0.1"
+tonic = {version = "~0.4", features = ["tls"]}
 
 [build-dependencies]
-tonic-build = { version="~0.3", features = ["prost"] }
+tonic-build = {version = "~0.4", features = ["prost"]}
