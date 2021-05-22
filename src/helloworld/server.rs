@@ -7,9 +7,9 @@ use tonic::{transport::Server, Request, Response, Status};
 // use async_timer::oneshot::{Oneshot, Timer};
 use hello_world::greeter_server::{Greeter, GreeterServer};
 use hello_world::{HelloReply, HelloRequest};
-use std::pin::Pin;
-use tokio::stream::Stream;
 use rand::{thread_rng, Rng};
+use std::pin::Pin;
+use tokio_stream::Stream;
 
 ///
 pub mod hello_world {
@@ -52,7 +52,7 @@ impl Greeter for MyGreeter {
 
         let mut rng = thread_rng();
 
-        let total_cnt: u32 = rng.gen_range(2, 20);
+        let total_cnt: u32 = rng.gen_range(2..20);
 
         let output = async_stream::try_stream! {
             while cnt < total_cnt {

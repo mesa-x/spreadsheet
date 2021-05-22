@@ -7,13 +7,13 @@ name = "mesax"
 repository = "https://github.com/mesa-x/spreadsheet"
 version = "0.1.0"
 
-# [[bin]]
-# name = "helloworld-client"
-# path = "src/helloworld/client.rs"
+[[bin]]
+name = "helloworld-client"
+path = "src/helloworld/client.rs"
 
-# [[bin]]
-# name = "helloworld-server"
-# path = "src/helloworld/server.rs"
+[[bin]]
+name = "helloworld-server"
+path = "src/helloworld/server.rs"
 
 [dependencies]
 async-stream = "~0.3"

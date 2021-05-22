@@ -46,7 +46,8 @@ the code is built, run the "`Hello World`" server: `./target/debug/helloworld-se
 In the second window, cd into the `3rd_party_bin` directory and type: `./start_grpc_web_proxy.sh`
 to start the gRPC-Web -> gRPC proxy.
 
-In the third window, cd into the `mesa-client` directory and type:
+In the third window, cd into the `client` directory and type (note, you'll have to install 
+https://www.npmjs.com/[npm] and https://developers.google.com/protocol-buffers[protoc]):
 
 * `npm install` to install all the dependencies
 * `npm run protoc` to compile the `.proto` files into TypeScript files
