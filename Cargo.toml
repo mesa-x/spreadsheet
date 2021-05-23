@@ -16,6 +16,7 @@ name = "helloworld-server"
 path = "src/helloworld/server.rs"
 
 [dependencies]
+arc-swap = "~1"
 async-stream = "~0.3"
 async-timer = "~0.7"
 atomic-counter = "~1"
