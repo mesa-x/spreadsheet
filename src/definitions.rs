@@ -72,12 +72,12 @@ pub trait ChangeEvent {
 
 /// A workbook is a collection
 pub trait Workbook {
-    fn get_sheets(&self) -> Vec<Box<dyn SheetIdentifier>>;
-    fn get_sheet(&self, sheet_id: SheetUniqueIdentifier) -> Option<Box<dyn Worksheet>>;
+    fn get_sheets(&self) -> Vec<Arc<dyn SheetIdentifier>>;
+    fn get_sheet(&self, sheet_id: SheetUniqueIdentifier) -> Option<Arc<dyn Worksheet>>;
     fn listen_for_changes(
         &self,
         to_listen: &Vec<SheetRange>,
-    ) -> dyn Stream<Item = Box<dyn ChangeEvent>>;
+    ) -> dyn Stream<Item = Arc<dyn ChangeEvent>>;
 }
 
 pub trait Cell {
@@ -96,9 +96,9 @@ pub enum Value {
     Bool(bool),
     JSON(JsonValue),
     Error((String, u32)),
-    Maybe(Option<Box<Value>>),
+    Maybe(Option<Arc<Value>>),
     TypedJSON((JsonValue, Arc<JsonType>)),
-    Other(Box<OtherValue>),
+    Other(Arc<OtherValue>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
