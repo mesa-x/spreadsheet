@@ -1,6 +1,6 @@
 [package]
 authors = ["David Pollak <feeder.of.the.bears@gmail.com>"]
-edition = "2018"
+edition = "2021"
 homepage = "https://mesa-x.org/"
 license = "Apache-2.0"
 name = "mesax"
@@ -22,15 +22,15 @@ async-timer = "~0.7"
 atomic-counter = "~1"
 im = {version = "~15", features = ["proptest", "serde"]}
 lazy_static = "~1.4"
-nom = "~6"
-nom_locate = "~3"
-lexical-core = "0.7.6"
-prost = "~0.8"
+lexical-core = "~0.8"
+nom = "~7"
+nom_locate = "~4"
+prost = "~0.9"
 rand = "~0.8"
 serde = "~1"
-tokio = {version = "~1.8", features = ["full"]}
+tokio = {version = "~1.13", features = ["full"]}
 tokio-stream = "~0.1"
-tonic = {version = "~0.5", features = ["tls"]}
+tonic = {version = "~0.6", features = ["tls"]}
 
 [build-dependencies]
-tonic-build = {version = "~0.5", features = ["prost"]}
+tonic-build = {version = "~0.6", features = ["prost"]}
